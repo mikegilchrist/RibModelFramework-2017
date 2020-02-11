@@ -13,7 +13,7 @@ using namespace Rcpp;
 // ---------- Constructors & Destructors ---------- //
 //--------------------------------------------------//
 
-/* Gen constructor (RCPP EXPOSED)
+/* Gene constructor (RCPP EXPOSED)
  * Arguments: None
  * Blank constructor for Gene class. Sets the sequence, id, and
  * description fields to empty strings.
@@ -30,7 +30,8 @@ Genome& Genome::operator=(const Genome& rhs)
 	genes = rhs.genes;
 	simulatedGenes = rhs.simulatedGenes;
 	numGenesWithPhi = rhs.numGenesWithPhi;
-	RFPCategoryNames = rhs.RFPCategoryNames;
+	RFPCountColumnNames = rhs.RFPCountColumnNames;
+	prev_genome_size = rhs.prev_genome_size;
 	//assignment operator
 	return *this;
 }
@@ -50,13 +51,10 @@ bool Genome::operator==(const Genome& other) const
 	if (!(this->genes == other.genes)) { match = false; }
 	if (!(this->simulatedGenes == other.simulatedGenes)) { match = false; }
 	if (this->numGenesWithPhi != other.numGenesWithPhi) { match = false; }
-	if (this->RFPCategoryNames != other.RFPCategoryNames) { match = false; }
+	if (this->RFPCountColumnNames != other.RFPCountColumnNames) { match = false; }
 
 	return match;
 }
-
-
-
 
 
 //----------------------------------------//
@@ -64,15 +62,16 @@ bool Genome::operator==(const Genome& other) const
 //----------------------------------------//
 
 /* readFasta (RCPP EXPOSED)
- * Arguments: filname to read Fasta sequence, boolean
- * whether the Fasta sequence should be appended.
+ * Arguments: string filename, boolean to determine if we are appending to an existing Fasta sequence
+ * (if not set to true, will default to clearing file; defaults to false)
  * Takes input in Fasta format from file and saves to genome.
 */
-void Genome::readFasta(std::string filename, bool Append) // read Fasta format sequences
+void Genome::readFasta(std::string filename, bool append)
 {
+	prev_genome_size = genes.size();
 	try
 	{
-		if (!Append)
+		if (!append)
 			clear();
 		std::ifstream Fin;
 		Fin.open(filename.c_str());
@@ -87,8 +86,12 @@ void Genome::readFasta(std::string filename, bool Append) // read Fasta format s
 
 			Gene tmpGene;
 			std::string tempSeq = "";
-			for (;;)
+			while (true)
 			{
+			    #ifndef STANDALONE
+			    Rcpp::checkUserInterrupt();
+			    #endif
+
 				// read a new line in every cycle
 				std::getline(Fin, buf);
 				/* The new line is marked with an integer, which corresponds
@@ -121,7 +124,7 @@ void Genome::readFasta(std::string filename, bool Append) // read Fasta format s
 						tempSeq = "";
 					}
 					tmpGene.setDescription( buf.substr(1,buf.size()-1) );
-					std::size_t pos = buf.find(" ") - 1;
+					std::size_t pos = buf.find(' ') - 1;
 					tmpGene.setId( buf.substr(1,pos) );
 				}
 
@@ -157,8 +160,8 @@ void Genome::readFasta(std::string filename, bool Append) // read Fasta format s
 
 
 /* writeFasta (RCPP EXPOSED)
- * Arguments: filname to write to,
- * boolean on if the genome is simulated.
+ * Arguments: filename to write to,
+ * boolean specifying if the genome is simulated or not (default non-simulated).
  * Writes a genome in Fasta format to given file
 */
 void Genome::writeFasta (std::string filename, bool simulated)
@@ -193,35 +196,40 @@ void Genome::writeFasta (std::string filename, bool simulated)
 	}
 }
 
-/*
- * TODO: REMOVE. Old readPAFile function
- * This function reads in ONLY based on RFPCounts > 0.
- * When this occurs, a sequence is made that is based on the number of RFPCounts there are.
- * This is because in RFP calculations, the sequence and number of codons is technically irrelevant.
- * What is relevant is the RFPCounts for certain codons, and an arbitrary sequence is constructed to
- * represent this.
- *
- * See also the documentation on process_sequence in SequenceSummary.cpp
- */
-void Genome::readRFPFile(std::string filename)
+
+// Recall: Because this is simulated genome data from PAModel's simulateGenome function, it will read in data that
+// disregards position. Codon counts are summed up when setSequence calls processSequence.
+// Note that for debug purposes this reads genome into the non-simulated genome TODO fix that
+void Genome::readSimulatedGenomeFromPAModel(std::string filename)
 {
 	std::ifstream Fin;
 	Fin.open(filename.c_str());
 	if (Fin.fail())
-		my_printError("Error in Genome::readRFPFile: Can not open RFP file %\n", filename);
+		my_printError("Error in Genome::readSimulatedGenomeFromPAModel: Can not open file %\n", filename);
 
 	std::string tmp;
-	//trash the first line
+	// Trash the first line, but we know it is in a simulatedGenomeFromPAModel format: GeneID,Codon,Codon_Count,RFPCount
 	if (!std::getline(Fin, tmp))
-		my_printError("Error in Genome::readRFPFile: RFP file % has no header.\n", filename);
+		my_printError("Error in Genome::readSimulatedGenomeFromPAModel: RFP file % has no header.\n", filename);
+
 	std::string prevID = "";
 	Gene tmpGene;
 	bool first = true;
 	std::string seq = "";
+	totalRFPCount = 0;
 
 	while (std::getline(Fin, tmp))
 	{
-		std::size_t pos = tmp.find(",");
+            #ifndef STANDALONE
+            Rcpp::checkUserInterrupt();
+            #endif
+
+    // Remove whitespace from the string
+    tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
+              std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
+
+		// Find the GeneID
+		std::size_t pos = tmp.find(',');
 		std::string ID = tmp.substr(0, pos);
 
 		if (first)
@@ -231,96 +239,80 @@ void Genome::readRFPFile(std::string filename)
 		}
 		if (ID != prevID)
 		{
+			//my_print("I am clearing the Gene sequence!\n");
 			tmpGene.setId(prevID);
-			tmpGene.setDescription("No description for RFP Model");
+			tmpGene.setDescription("No description for PA(NSE) Model");
 			tmpGene.setSequence(seq);
-			addGene(tmpGene, false); //add to genome
+			addGene(tmpGene, true); //add to genome
 			tmpGene.clear();
 			seq = "";
 		}
-		std::size_t pos2 = tmp.find(",", pos + 1);
-		std::string value = tmp.substr(pos + 1, pos2 - (pos + 1));
-		unsigned counts = (unsigned)std::atoi(value.c_str());
-		pos = tmp.find(",", pos2 + 1);
-		std::string codon = tmp.substr(pos + 1, 3);
-		for (unsigned i = 0; i < counts; i++)
-			seq += codon;
 
+        // Now find codon string: Follows prior comma, guaranteed to be of size 3
+        std::string codon = tmp.substr(pos + 1, 3);
+        codon[0] = (char)std::toupper(codon[0]);
+        codon[1] = (char)std::toupper(codon[1]);
+        codon[2] = (char)std::toupper(codon[2]);
+
+        std::size_t pos2 = pos + 4;
+        pos = tmp.find(",", pos2 + 1);
+        std::string value = tmp.substr(pos2 + 1, pos - (pos2 + 1));
+        unsigned codonCount = (unsigned)std::atoi(value.c_str());
+
+        // Concatenate the sequence based on this number of codons
+        for (unsigned i = 0u; i < codonCount; i++)
+            seq.append(codon);
+
+        //Read rfp count
+        value = tmp.substr(pos + 1);
+		unsigned rfpcount = (unsigned)std::atoi(value.c_str());
+
+		unsigned codonIndex = SequenceSummary::codonToIndex(codon);
+		tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, rfpcount, 0);
 		prevID = ID;
 	}
 
 	tmpGene.setId(prevID);
-	tmpGene.setDescription("No description for RFP Model");
+	tmpGene.setDescription("No description for PA(NSE) Model");
 	tmpGene.setSequence(seq);
-
-	addGene(tmpGene, false); //add to genome
+	addGene(tmpGene, true); //add to genome
+	totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
 
 	Fin.close();
 }
 
-/* TODO: REMOVE once writePAFile is completed
- * Note: As the ncodons is not preserved when the RFP file is read in or RFP is otherwise processed,
- * NA is returned for the number of codons. This still preserves functionality for future
- * readRFPFile calls, as only the RFPCounts is important.
-*/
-void Genome::writeRFPFile(std::string filename, bool simulated)
-{
-	std::ofstream Fout;
-	Fout.open(filename.c_str());
-	if (Fout.fail())
-		my_printError("Error in Genome::writeRFPFile: Can not open output RFP file %\n", filename);
-	else
-	{
-		Fout << "ORF,RFPCounts,Codon_Counts,Codon\n";
-		unsigned sized = simulated ? (unsigned)simulatedGenes.size() : (unsigned)genes.size();
 
-		for (unsigned geneIndex = 0; geneIndex < sized; geneIndex++)
-		{
-			Gene *currentGene = simulated ? &simulatedGenes[geneIndex] : &genes[geneIndex];
-
-			for (unsigned codonIndex = 0; codonIndex < 64; codonIndex++)
-			{
-				std::string codon = SequenceSummary::codonArray[codonIndex];
-
-				Fout << currentGene->getId() << ",";
-				Fout << currentGene->geneData.getRFPValue(codonIndex) << ",";
-				Fout << "NA," << codon << "\n";
-			}
-		}
-	}
-	Fout.close();
-}
-
-
-/* readPAFile (TODO: RCPP EXPOSE VIA WRAPPER)
+/* readRFPData (RCPP EXPOSED)
  * Arguments: string filename, boolean to determine if we are appending to the existing genome
  * (if not set to true, will default to clearing genome data; defaults to false)
  * Read in a PA-formatted file: GeneID,Position (1-indexed),Codon,RFPCount(s) (may be multiple)
  * The positions are not necessarily in the right order.
+ * Ignores ambiguously-positioned codons (marked with negative position).
+ * RFPCounts are not given as a positive number are set to -1 and are stored, but not used in calculation.
  * There may be more than one RFPCount, and thus the header is important.
 */
-void Genome::readPAFile(std::string filename, bool Append)
+void Genome::readRFPData(std::string filename, bool append, bool positional)
 {
 	try {
-		if (!Append) clear();
-
+		if (!append) clear();
+		totalRFPCount = 0;
 		std::ifstream Fin;
 		Fin.open(filename.c_str());
 
 		if (Fin.fail())
-			my_printError("Error in Genome::readPAFile: Can not open PA file %\n", filename);
+			my_printError("Error in Genome::readRFPData: Can not open RFPData file %\n", filename);
 		else
 		{
 			// Analyze the header line
 			std::string tmp;
 
             if (!std::getline(Fin, tmp))
-                my_printError("Error in Genome::readPAFile: PA file % has no header.\n", filename);
+                my_printError("Error in Genome::readRFPData: RFPData file % has no header.\n", filename);
 
 			// Ignore first 3 commas: ID, position, codon
-			std::size_t pos = tmp.find(",");
-			pos = tmp.find(",", pos + 1);
-			pos = tmp.find(",", pos + 1);
+			std::size_t pos = tmp.find(',');
+			pos = tmp.find(',', pos + 1);
+			pos = tmp.find(',', pos + 1);
 
 			// While there are more commas, there are more categories of RFP counts
 			unsigned numCategories = 0;
@@ -328,8 +320,8 @@ void Genome::readPAFile(std::string filename, bool Append)
 			while (pos != std::string::npos)
 			{
 				numCategories++;
-				pos2 = tmp.find(",", pos + 1);
-				addRFPCategoryName(tmp.substr(pos + 1, pos2 - (pos + 1)));
+				pos2 = tmp.find(',', pos + 1);
+				addRFPCountColumnName(tmp.substr(pos + 1, pos2 - (pos + 1)));
 				pos = pos2;
 			}
 			unsigned tableWidth = 2 + numCategories; // Table size: position + codonID + each category
@@ -340,46 +332,60 @@ void Genome::readPAFile(std::string filename, bool Append)
 			// -------------------------------------------------------------------------//
 			std::string prevID = "";
 			Gene tmpGene;
-			int position;
+			int position, possValue;
 			prevID = "";
 			bool first = true;
 
-			std::vector <std::vector <unsigned>> table; // Dimensions: nRows of tableWidth-sized vectors
+			std::vector <std::vector <int>> table; // Dimensions: nRows of tableWidth-sized vectors
 
 			//Now for each line associated with a gene ID, set the string appropriately
 			while (std::getline(Fin, tmp))
 			{
-				pos = tmp.find(",");
+
+            #ifndef STANDALONE
+            Rcpp::checkUserInterrupt();
+            #endif
+
+        // Remove whitespace from the string
+        tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
+                  std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
+
+				pos = tmp.find(',');
 				std::string ID = tmp.substr(0, pos);
 
 				// Make pos2 find next comma to find position integer
-				pos2 = tmp.find(",", pos + 1);
+				pos2 = tmp.find(',', pos + 1);
 
 				// Set to 0-indexed value for convenience of vector calculation
+				// Error-checking note: Of course, atoi function returns 0 if not an integer
+				// -> leads to 0 - 1 == -1 -> codon ignored (as intended).
 				position = std::atoi(tmp.substr(pos + 1, pos2 - (pos + 1)).c_str()) - 1;
 
 				// Position integer: Ensure that if position is negative, ignore the codon.
 				if (position > -1) // for convenience of calculation; ambiguous positions are marked by -1.
 				{
-					std::vector <unsigned> tableRow(tableWidth);
+					std::vector <int> tableRow(tableWidth);
 					unsigned tableIndex = 0;
-					tableRow[tableIndex] = (unsigned)position;
+					tableRow[tableIndex] = position;
 
 					if (first)
 					{
 						prevID = ID;
 						first = false;
 					}
+					//This is when we start at a new geneID
 					if (ID != prevID)
 					{
 						tmpGene.setId(prevID);
-						tmpGene.setDescription("No description for PANSE Model");
-						tmpGene.setPASequence(table);
+						tmpGene.setDescription("No description for PA(NSE) Model");
+						if(positional) tmpGene.setPANSESequence(table);
+						else tmpGene.setPASequence(table);
 						addGene(tmpGene, false); //add to genome
+						totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
 						tmpGene.clear();
 						table.clear();
 					}
-					// Now find codon value: Follows prior comma, guaranteed to be of size 3
+					// Now find codon string: Follows prior comma, guaranteed to be of size 3
 					std::string codon = tmp.substr(pos2 + 1, 3);
 					codon[0] = (char)std::toupper(codon[0]);
 					codon[1] = (char)std::toupper(codon[1]);
@@ -390,14 +396,26 @@ void Genome::readPAFile(std::string filename, bool Append)
 					// Note: May be an invalid Codon read in, but this is resolved when the sequence is set and processed.
 
 					// Skip to end RFPCount(s), if any
-					pos = tmp.find(",", pos2 + 1);
+					pos = tmp.find(',', pos2 + 1);
 					tableIndex ++;
 
 					// While there are more commas, there are more categories of RFP counts
 					while (pos != std::string::npos)
 					{
-						pos2 = tmp.find(",", pos + 1);
-						tableRow[tableIndex] = (unsigned) std::atoi(tmp.substr(pos + 1, pos2 - (pos + 1)).c_str());
+						pos2 = tmp.find(',', pos + 1);
+
+						// RFPCount is input as either its integer value (> -1) or as -1 (stored, not calculated).
+						// Also accounts for if the value is "NA" or a string (converted to -1).
+						if (sscanf(tmp.substr(pos + 1, pos2 - (pos + 1)).c_str(), "%d", &possValue) == 1)
+						{
+							if (possValue > -1) tableRow[tableIndex] = possValue;
+							else tableRow[tableIndex] = -1;
+						}
+                        else
+						{
+							tableRow[tableIndex] = -1;
+						}
+
 						pos = pos2;
 						tableIndex++;
 					}
@@ -411,8 +429,9 @@ void Genome::readPAFile(std::string filename, bool Append)
             if (prevID != "")
             {
                 tmpGene.setId(prevID);
-                tmpGene.setDescription("No description for PANSE Model");
+                tmpGene.setDescription("No description for PA(NSE) Model");
                 tmpGene.setPASequence(table);
+                totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
                 addGene(tmpGene, false); //add to genome
             }
 		} // end else
@@ -425,68 +444,80 @@ void Genome::readPAFile(std::string filename, bool Append)
 }
 
 
-//TODO: Complete
-void Genome::writePAFile(std::string filename, bool simulated)
+/* writeRFPData (RCPP EXPOSED)
+ * Arguments: string filename, boolean to specify if we are printing simulated genes or not (default non-simulated)
+ * Write a PA-formatted file: GeneID,Position (1-indexed),Codon,RFPCount(s) (may be multiple)
+ * The positions will be printed in ascending order.
+*/
+void Genome::writeRFPData(std::string filename, bool simulated)
 {
 	std::ofstream Fout;
 	Fout.open(filename.c_str());
 	if (Fout.fail())
-		my_printError("Error in Genome::writePAFile: Can not open output RFP file %\n", filename);
+		my_printError("Error in Genome::writeRFPData: Can not open output RFPData file %\n", filename);
 	else
 	{
-		Fout << "GeneID,Position,Codon";
-
-		// For each category name, print for header
-		std::vector <std::string> RFPCategoryNames = getRFPCategoryNames();
-		unsigned numCategories = (unsigned)RFPCategoryNames.size();
-		for (unsigned category = 0; category < numCategories; category++)
-		{
-			Fout << ",";
-			Fout << RFPCategoryNames[category];
-		}
-
-		Fout << "\n";
-
 		unsigned numGenes = simulated ? (unsigned)simulatedGenes.size() : (unsigned)genes.size();
 
-		for (unsigned geneIndex = 0; geneIndex < numGenes; geneIndex++)
+		if (!simulated)
 		{
-			Gene *currentGene = simulated ? &simulatedGenes[geneIndex] : &genes[geneIndex];
-			std::vector <unsigned> positionCodonID = currentGene->geneData.getPositionCodonID();
-			unsigned numPositions = (unsigned)positionCodonID.size();
+			Fout << "GeneID,Position,Codon";
 
-			for (unsigned position = 0; position < numPositions; position++)
+			// For each category name, print for header
+			std::vector<std::string> RFPCountColumnNames = getRFPCountColumnNames();
+			unsigned numCategories = (unsigned)RFPCountColumnNames.size();
+			for (unsigned category = 0u; category < numCategories; category++)
+				Fout << "," << RFPCountColumnNames[category];
+
+			Fout << "\n";
+
+			for (unsigned geneIndex = 0u; geneIndex < numGenes; geneIndex++)
 			{
-				unsigned codonID = positionCodonID[position];
-				std::string codon = SequenceSummary::codonArray[codonID];
+				Gene *currentGene = &genes[geneIndex];
+				std::vector<unsigned> positionCodonID = currentGene->geneData.getPositionCodonID();
+				unsigned numPositions = (unsigned)positionCodonID.size();
 
-				// Print position + 1 because it's externally one-indexed
-				Fout << currentGene->getId() << "," << position + 1 << "," << codon;
+				for (unsigned position = 0u; position < numPositions; position++)
+				{
+					unsigned codonID = positionCodonID[position];
+					std::string codon = SequenceSummary::codonArray[codonID];
 
-				for (unsigned category = 0; category < numCategories; category++)
-                {
-					Fout << ",";
-					Fout << currentGene->geneData.getSingleRFPCount(category, position);
+					// Print position + 1 because it's externally one-indexed
+					Fout << currentGene->getId() << "," << position + 1 << "," << codon;
+
+					for (unsigned category = 0; category < numCategories; category++)
+						Fout << "," << currentGene->geneData.getSingleRFPCount(position, category);
+
+					Fout << "\n";
 				}
-
-				Fout << "\n";
 			}
+		}
+            // We are printing a simulated gene: There is no position-based RFP calculations.
+            // This is a different format than the standard RFPData one.
+		else
+		{
+			Fout << "GeneID,Position,Codon,RFPCount\n";
 
-			/*
-			for (unsigned codonIndex = 0; codonIndex < 64; codonIndex++)
+			for (unsigned geneIndex = 0u; geneIndex < numGenes; geneIndex++)
 			{
-				std::string codon = SequenceSummary::codonArray[codonIndex];
+                //unsigned position = 1u;
+				Gene *currentGene = &simulatedGenes[geneIndex];
+                SequenceSummary *sequenceSummary = currentGene->getSequenceSummary();
+                std::vector <unsigned> positions = sequenceSummary->getPositionCodonID();
+                std::vector <int> rfpCounts = sequenceSummary->getRFPCount(0);
+				for (unsigned positionIndex = 0u; positionIndex < positions.size(); positionIndex++)
+				{
+					unsigned codonID = positions[positionIndex];
+    				std::string codon = SequenceSummary::codonArray[codonID];
 
-				Fout << currentGene->getId() << ",";
-				Fout << currentGene->geneData.getRFPValue(codonIndex) << ",";
-				Fout << "NA," << codon << "\n";
+    				Fout << currentGene->getId() << "," << positionIndex + 1 << "," << codon << "," << rfpCounts[positionIndex] << "\n";
+
+				}
 			}
-			 */
 		}
 	}
 	Fout.close();
 }
-
 
 
 /* readObservedPhiValues
@@ -503,7 +534,7 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 	std::ifstream input;
 	std::string tmp;
 	unsigned numPhi = 0;
-	bool exitfunction = false;
+	bool exitFunction = false;
 
 	input.open(filename);
 	if (input.fail())
@@ -530,13 +561,18 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
                 bool first = true;
                 while (std::getline(input, tmp))
 				{
-                    std::size_t pos = tmp.find(",");
+
+            #ifndef STANDALONE
+            Rcpp::checkUserInterrupt();
+            #endif
+                    std::size_t pos = tmp.find(',');
                     std::string geneID = tmp.substr(0, pos);
                     std::map<std::string, Gene *>::iterator it;
                     it = genomeMapping.find(geneID);
 
                     if (it == genomeMapping.end())
                         my_printError("WARNING: Gene % not found!\n", geneID);
+
                     else //gene is found
                     {
                         std::string val = "";
@@ -546,7 +582,7 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 						// Loop over each comma-separated value
                         while (notDone)
 						{
-							std::size_t pos2 = tmp.find(",", pos + 1);
+							std::size_t pos2 = tmp.find(',', pos + 1);
 
 							// End of string, end loop
 							if (pos2 == std::string::npos)
@@ -582,7 +618,7 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
                             my_printError("ERROR: Gene % has a different number of phi values given other genes: \n", geneID);
                             my_printError("Gene % has % ", geneID, it -> second -> observedSynthesisRateValues.size());
                             my_printError("while others have %. Exiting function.\n", numPhi);
-							exitfunction = true;
+							exitFunction = true;
 							for (unsigned a = 0; a < getGenomeSize(); a++)
 							{
 								genes[a].observedSynthesisRateValues.clear();
@@ -590,11 +626,11 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 							break;
 						}
                     }
-                    if (exitfunction) break;
+                    if (exitFunction) break;
                 }
 				// If number of phi values match those of other given genes, execution continues normally.
 				// Proceed to increment numGenesWithPhi.
-                if (!exitfunction)
+                if (!exitFunction)
 				{
                     for (unsigned i = 0; i < getGenomeSize(); i++)
 					{
@@ -604,7 +640,8 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 							my_printError("WARNING: Gene # % (%) does not have any phi values. ", i, gene->getId());
                             my_printError("Please check your file to make sure every gene has a phi value. Filling empty genes ");
                             my_printError("with Missing Value Flag for calculations.\n");
-                            gene->observedSynthesisRateValues.resize(numPhi, -1);
+                           	gene->observedSynthesisRateValues.resize(numPhi, -1);
+
                         }
 
 						// Finally increment numGenesWithPhi based on stored observedSynthesisRateValues
@@ -619,18 +656,19 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 				// By index
             else
 			{
-				unsigned geneIndex = 0;
+				//unsigned geneIndex = 0;
+				unsigned geneIndex=prev_genome_size;
 				bool first = true;
 
 				while (std::getline(input, tmp))
 				{
 					if (geneIndex >= genes.size())
 					{
-						my_printError("ERROR: GeneIndex exceeds the number of genes in the genome. Exiting function.\n");
+						my_printError("ERROR: GeneIndex exceeds the number of genes in the genome. Exiting function.");
 						break;
 					}
 
-					std::size_t pos = tmp.find(",");
+					std::size_t pos = tmp.find(',');
 					std::string val = "";
 					bool notDone = true;
 					double dval;
@@ -638,7 +676,7 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 					// Loop over each comma-separated value
 					while (notDone)
 					{
-						std::size_t pos2 = tmp.find(",", pos + 1);
+						std::size_t pos2 = tmp.find(',', pos + 1);
 
 						// End of string, end loop
 						if (pos2 == std::string::npos)
@@ -674,7 +712,7 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
                         my_printError("ERROR: Gene % has a different number of phi values given other genes: \n", geneIndex);
                         my_printError("Gene % has % ", geneIndex, genes[geneIndex].observedSynthesisRateValues.size());
                         my_printError("while others have %. Exiting function.\n", numPhi);
-						exitfunction = true;
+						exitFunction = true;
 						for (unsigned a = 0; a < getGenomeSize(); a++)
 						{
 							genes[a].observedSynthesisRateValues.clear();
@@ -682,11 +720,11 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 						break;
 					}
 					geneIndex++;
-					if (exitfunction) break;
+					if (exitFunction) break;
 				}
 				// If number of phi values match those of other given genes, execution continues normally.
 				// Proceed to increment numGenesWithPhi.
-				if (!exitfunction)
+				if (!exitFunction)
 				{
 					for (unsigned i = 0; i < getGenomeSize(); i++)
 					{
@@ -696,7 +734,8 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
                             my_printError("WARNING: Gene # % (%) does not have any phi values. ", i, gene->getId());
                             my_printError("Please check your file to make sure every gene has a phi value. Filling empty genes ");
                             my_printError("with Missing Value Flag for calculations.\n");
-							gene->observedSynthesisRateValues.resize(numPhi, -1);
+                           	gene->observedSynthesisRateValues.resize(numPhi, -1);
+
 						}
 
 						// Finally increment numGenesWithPhi based on stored observedSynthesisRateValues
@@ -714,9 +753,28 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 }
 
 
+void Genome::removeUnobservedGenes()
+{
+	std::vector<Gene> tmp;
+	for (unsigned i = 0; i < getGenomeSize(); i++)
+	{
+		Gene *gene = &(getGene(i));
+		for (unsigned j = 0; j < gene -> observedSynthesisRateValues.size(); j++)
+		{
+			if (gene -> observedSynthesisRateValues[j] != -1)
+			{
+				tmp.push_back(*gene);
+				break;
+			}
+		}
+	}
+	genes = tmp;
+}
 
-
-
+unsigned Genome::getSumRFP()
+{
+    return totalRFPCount;
+}
 //------------------------------------//
 //---------- Gene Functions ----------//
 //------------------------------------//
@@ -724,10 +782,10 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 
 /* Gene constructor (RCPP EXPOSED)
  * Arguments: gene to add, boolean if it was simulated.
- * Depeneding on whether a gene was simulated appends to
+ * Depending on whether a gene was simulated, appends to
  * genes or simulated genes.
 */
-void Genome::addGene(const Gene& gene, bool simulated)
+void Genome::addGene(Gene& gene, bool simulated)
 {
 	simulated ? simulatedGenes.push_back(gene) : genes.push_back(gene);
 }
@@ -754,7 +812,7 @@ unsigned Genome::getNumGenesWithPhiForIndex(unsigned index)
 }
 
 
-/* getNumGenesWithPhiForIndex (RCPP EXPOSED)
+/* getGene (unsigned index) (RCPP EXPOSED)
  * Arguments: index number, simulated
  * Returns the gene from the requested set at index
 */
@@ -764,9 +822,9 @@ Gene& Genome::getGene(unsigned index, bool simulated)
 }
 
 
-/* getNumGenesWithPhiForIndex (RCPP EXPOSED)
+/* getGene (string id) (RCPP EXPOSED)
  * Arguments: id, simulated
- * Returns the gene from the requested set with the id
+ * Returns the gene from the requested set with the id given
 */
 Gene& Genome::getGene(std::string id, bool simulated)
 {
@@ -777,7 +835,7 @@ Gene& Genome::getGene(std::string id, bool simulated)
 	{
 		tempGene = simulated ? simulatedGenes[geneIndex] : genes[geneIndex];
 
-		if (tempGene.getId().compare(id) == 0) break;
+		if (tempGene.getId() == id) break;
 	}
 	return simulated ? simulatedGenes[geneIndex] : genes[geneIndex];
 }
@@ -812,7 +870,7 @@ void Genome::clear()
 	genes.clear();
 	simulatedGenes.clear();
 	numGenesWithPhi.clear();
-	RFPCategoryNames.clear();
+	RFPCountColumnNames.clear();
 }
 
 
@@ -856,29 +914,30 @@ std::vector<unsigned> Genome::getCodonCountsPerGene(std::string codon)
 	for (unsigned i = 0u; i < genes.size(); i++)
 	{
 		Gene gene = genes[i];
-		SequenceSummary *seqsum = gene.getSequenceSummary();
-		codonCounts[i] = seqsum -> getCodonCountForCodon(codonIndex);
+		SequenceSummary *sequenceSummary = gene.getSequenceSummary();
+		codonCounts[i] = sequenceSummary->getCodonCountForCodon(codonIndex);
 	}
 	return codonCounts;
 }
 
-/* getRFPCategoryName (NOT EXPOSED)
+
+/* getRFPCountColumnName (NOT EXPOSED)
  * Arguments: None
- * Returns the vector of RFPCategoryNames.
+ * Returns the vector of RFPCountColumnNames.
 */
-std::vector <std::string> Genome::getRFPCategoryNames()
+std::vector <std::string> Genome::getRFPCountColumnNames()
 {
-	return RFPCategoryNames;
+	return RFPCountColumnNames;
 }
 
 
-/* addRFPCategoryName (NOT EXPOSED)
+/* addRFPCountColumnName (NOT EXPOSED)
  * Arguments: string categoryName
- * Adds the name of an RFP category to the RFPCategoryNames vector.
+ * Adds the name of an RFP category to the RFPCountColumnNames vector.
 */
-void Genome::addRFPCategoryName(std::string categoryName)
+void Genome::addRFPCountColumnName(std::string categoryName)
 {
-	RFPCategoryNames.push_back(categoryName);
+	RFPCountColumnNames.push_back(categoryName);
 }
 
 
@@ -1005,10 +1064,11 @@ RCPP_MODULE(Genome_mod)
 		//File I/O Functions:
 		.method("readFasta", &Genome::readFasta, "reads a genome into the object")
 		.method("writeFasta", &Genome::writeFasta, "writes the genome to a fasta file")
-		.method("readPAFile", &Genome::readPAFile, "reads RFP data in for the RFP models")
-		//.method("writePAfile", &Genome::writePAFile)
+		.method("readRFPData", &Genome::readRFPData, "reads RFPData to be used in PA(NSE) models")
+		.method("readSimRFPData", &Genome::readSimulatedGenomeFromPAModel, "reads already simulated RFPData to be used in PA(NSE) models")
+		.method("writeRFPData", &Genome::writeRFPData, "writes RFPData used in PA(NSE) models")
 		.method("readObservedPhiValues", &Genome::readObservedPhiValues)
-
+		.method("removeUnobservedGenes", &Genome::removeUnobservedGenes)
 
 		//Gene Functions:
 		.method("addGene", &Genome::addGene) //TEST THAT ONLY!

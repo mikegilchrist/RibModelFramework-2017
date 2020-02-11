@@ -16,13 +16,15 @@ class Model
         explicit Model();
 		// TODO: Rule of Three dictates we may need a copy assignment operator as well (operator=)
         virtual ~Model();
+        Model& operator=(const Model& rhs);
+
 
 
         //Likelihood Ratio Functions:
         virtual void calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex, unsigned k,
 					double* logProbabilityRatio) = 0;
         virtual void calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grouping, Genome& genome,
-        		std::vector<double> &logAcceptanceRatioForAllMixtures) = 0;
+        			std::vector<double> &logAcceptanceRatioForAllMixtures) = 0;
 		virtual void calculateLogLikelihoodRatioForHyperParameters(Genome &genome, unsigned iteration,
 					std::vector <double> &logProbabilityRatio) = 0;
 
@@ -31,7 +33,7 @@ class Model
 
 
 		//Initialization and Restart Functions:
-		virtual void initTraces(unsigned samples, unsigned num_genes) = 0;
+		virtual void initTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true) = 0;
 		virtual void writeRestartFile(std::string filename) = 0;
 
 
@@ -104,6 +106,7 @@ class Model
 		virtual void setCategoryProbability(unsigned mixture, double value) = 0;
 
 		virtual void updateCodonSpecificParameter(std::string grouping) = 0;
+		virtual void completeUpdateCodonSpecificParameter() = 0;
 		virtual void updateGibbsSampledHyperParameters(Genome &genome) = 0;
 		virtual void updateAllHyperParameter() = 0;
 		virtual void updateHyperParameter(unsigned hp) = 0;

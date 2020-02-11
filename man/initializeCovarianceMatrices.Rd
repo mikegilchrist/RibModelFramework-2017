@@ -4,12 +4,12 @@
 \alias{initializeCovarianceMatrices}
 \title{Initialize Covariance Matrices}
 \usage{
-initializeCovarianceMatrices(parameter, genome, numMixtures, geneAssignment,
-  init.csp.variance = 0.0025)
+initializeCovarianceMatrices(parameter, genome, numMixtures,
+  geneAssignment, init.csp.variance = 0.0025)
 }
 \arguments{
 \item{parameter}{A Parameter object that corresponds to one of the model types. 
-Valid values are "ROC", "RFP", and "FONSE".}
+Valid values are "ROC", "PA", and "FONSE".}
 
 \item{genome}{An object of type Genome necessary for the initialization of the Parameter object.}
 
@@ -28,4 +28,3 @@ parameter Returns the Parameter argument, now modified with initialized mutation
 \description{
 Initialize Covariance Matrices
 }
-

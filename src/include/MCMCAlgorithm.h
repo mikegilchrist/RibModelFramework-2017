@@ -3,8 +3,10 @@
 
 
 #include "ROC/ROCModel.h"
-#include "RFP/RFPModel.h"
+#include "PA/PAModel.h"
+#include "PANSE/PANSEModel.h"
 #include "FONSE/FONSEModel.h"
+#include "SequenceSummary.h"
 
 
 #include <vector>

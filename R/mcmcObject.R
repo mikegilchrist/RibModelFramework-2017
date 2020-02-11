@@ -31,11 +31,54 @@
 #' It is important to note that est.expression and est.hyper will affect one another
 #' negatively if their values differ.
 #' 
+#' @examples 
+#' 
+#' ## initializing an object of type mcmc
+#' 
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' 
+#' ## estimate all parameter types
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, adaptive.width=adaptiveWidth, 
+#'                              est.expression=TRUE, est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#'                              
+#' ## do not estimate expression values, initial conditions will remain constant
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, adaptive.width=adaptiveWidth, 
+#'                              est.expression=FALSE, est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#'                              
+#' ## do not estimate hyper parameters, initial conditions will remain constant
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, adaptive.width=adaptiveWidth, 
+#'                              est.expression=TRUE, est.csp=TRUE, est.hyper=FALSE, est.mix = TRUE) 
+#' 
 initializeMCMCObject <- function(samples, thinning=1, adaptive.width=100, 
                                  est.expression=TRUE, est.csp=TRUE, 
                                  est.hyper=TRUE, est.mix=TRUE){
   
-  #TODO: error check given values.
+  # error check given values.
+  if (!is.numeric(samples) || samples < 1 || !all(samples == as.integer(samples))) {
+    stop("samples must be a positive integer\n")
+  }
+  if (!is.numeric(thinning) || thinning < 1 || !all(thinning == as.integer(thinning))) {
+    stop("thinning must be a positive integer\n")
+  }
+  if (!is.numeric(adaptive.width) || adaptive.width < 1 || 
+      !all(adaptive.width == as.integer(adaptive.width))) {
+    stop("adaptive.width must be a positive integer\n")
+  }
+  if (!identical(est.expression, TRUE) && !identical(est.expression, FALSE)) {
+    stop("est.expression must be a boolean value\n")
+  }
+  if (!identical(est.csp, TRUE) && !identical(est.csp, FALSE)) {
+    stop("est.csp must be a boolean value\n")
+  }
+  if (!identical(est.hyper, TRUE) && !identical(est.hyper, FALSE)) {
+    stop("est.hyper must be a boolean value\n")
+  }
+  if (!identical(est.mix, TRUE) && !identical(est.mix, FALSE)) {
+    stop("est.mix must be a boolean value\n")
+  }
+
   mcmc <- new(MCMCAlgorithm, samples, thinning, adaptive.width, est.expression, 
               est.csp, est.hyper)
   mcmc$setEstimateMixtureAssignment(est.mix)
@@ -69,26 +112,38 @@ initializeMCMCObject <- function(samples, thinning=1, adaptive.width=100,
 #' steps, and the state of the chain is saved every thinning steps.
 #' 
 #' @examples 
-#' \dontrun{
+#' 
 #' #fitting a model to a genome using the runMCMC function
 #' 
-#' genome <- initializeGenomeObject(file = "genome.fasta")
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome) # random gene assignment to mixtures
-#' parameter <- initializeParameterObject(genome, sphi_init, 
-#'	numMixtures, geneAssignment, "allUnique")
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
 #' samples <- 2500
 #' thinning <- 50
 #' adaptiveWidth <- 25
-#' mcmc <- initializeMCMCObject(samples, thinning, adaptive.width=adaptiveWidth, 
-#'                              est.expression=TRUE, est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
 #' divergence.iteration <- 10
-#' runMCMC(mcmc, genome, model, 4, divergence.iteration)
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
 #' }
 #' 
 runMCMC <- function(mcmc, genome, model, ncores = 1, divergence.iteration = 0){
-  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_Algorithm")
+  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_MCMCAlgorithm")
+  
+  if (ncores < 1 || !all(ncores == as.integer(ncores))) {
+    stop("ncores must be a positive integer\n")
+  }
   mcmc$run(genome, model, ncores, divergence.iteration)
 }
 
@@ -115,52 +170,104 @@ runMCMC <- function(mcmc, genome, model, ncores = 1, divergence.iteration = 0){
 #' file, the sample number is prepended onto the file name and multiple rerstart files
 #' are generated for a run.
 #' 
+#' @examples 
+#' 
+#' ## set restart settings for checkpointing
+#' 
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' 
+#' ## estimate all parameter types
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#'                              
+#' # prompts the mcmc to write a restart file every 100 samples during the run.
+#' setRestartSettings(mcmc = mcmc, filename = "test_restart", samples = 100)
+#' 
+#' # prompts the mcmc to write a restart file every 100 samples during the run, 
+#' # but will overwrite it each time.
+#' setRestartSettings(mcmc = mcmc, filename = "test_restart", samples = 100, 
+#'                    write.multiple = FALSE)
+#'            
 setRestartSettings <- function(mcmc, filename, samples, write.multiple=TRUE){
-  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_Algorithm")
+  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_MCMCAlgorithm")
   mcmc$setRestartFileSettings(filename, samples, write.multiple)
 }
 
 
-# TODO: Have someone who knows what's going on document this.
-# The true method is found in traceObject.R
 #' Convergence Test
 #' 
 #' @param object an object of either class Trace or MCMC
 #' 
-#' @param n.samples number of samples at the end of the trace used to determine convergence (< length of trace)
+#' @param samples number of samples at the end of the trace used to determine convergence (< length of trace). 
+#' Will use as starting point of convergence test. If the MCMC trace
+#' is of length x, then starting point for convergence test will be x - samples.
 #' 
-#' @param frac1 fraction to use from beginning of chain
+#' @param frac1 fraction to use from beginning of samples
 #' 
-#' @param frac2 fraction to use from end of chain
+#' @param frac2 fraction to use from end of samples
 #' 
-#' @param thin the thinning interval between consecutive observations
+#' @param thin the thinning interval between consecutive observations, which is used in creating a coda::mcmc object (according to the Coda documentation, users should specify if a MCMC chain has already been thinned using a the thin parameter). This does not further thin the data.
 #' 
 #' @param plot (logical) plot result instead of returning an object
 #' 
-#' @param what Character describing which trace should be tested for convergence (only for trace object). Valid options are
-#' Mutation, Selection, MixtureProbability, Sphi, Mphi, ExpectedPhi, or Expression
+#' @param what (for Trace Object only) which parameter to calculate convergence.test -- current options are Selection, Mutation, MixtureProbability, Sphi, Mphi, ExpectedPhi, and AcceptanceCSP
 #' 
-#' @param mixture Integer determining for which mixture disribution the convergence test should be applied (only for trace object).
+#' @param mixture (for Trace Object only) mixture for which to calculate convergence.test
 #' 
-#' @return geweke score object
+#' @details  Be aware that convergence.test for Trace objects works primarily for Trace objects from the ROC parameter class. Future updates will adapt this function to work for parameters from other models and expression traces
 #' 
-#' @description \code{convergence.test} 
+#' @return Geweke score object evaluating whether means of two fractions (frac1 and frac2) differ.  Convergence occurs when they don't differ significantly, i.e. pnorm(abs(convergence.test(mcmcObj)$a, ,lower.tail=FALSE)*2 > 0.05
 #' 
-#' @details \code{convergence.test}
+#' @examples 
 #' 
-convergence.test <- function(object, n.samples = 10, frac1 = 0.1, frac2 = 0.5, 
+#' ## check for convergence after a run:
+#' 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
+#' # check if posterior trace has converged
+#' convergence.test(object = mcmc, samples = 500, plot = TRUE)
+#' 
+#' trace <- getTrace(parameter)
+#' # check if Mutation trace has converged
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "Mutation")
+#' # check if Sphi trace has converged
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "Sphi")
+#' # check if ExpectedPhi trace has converged
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "ExpectedPhi")
+#' }
+convergence.test <- function(object, samples = 10, frac1 = 0.1, frac2 = 0.5, 
                     thin = 1, plot = FALSE, what = "Mutation", mixture = 1){
   UseMethod("convergence.test", object)
 }
 
-
-convergence.test.Rcpp_MCMCAlgorithm <- function(object, n.samples = 10, frac1 = 0.1, 
+convergence.test.Rcpp_MCMCAlgorithm <- function(object, samples = 10, frac1 = 0.1, 
                                        frac2 = 0.5, thin = 1, plot = FALSE, what = "Mutation", mixture = 1){
   # TODO: extend to work with multiple chains once we have that capability.
-  
+  trace <- object$getLogPosteriorTrace()
   loglik.trace <- object$getLogPosteriorTrace()
   trace.length <- length(loglik.trace)
-  start <- max(1, trace.length - n.samples)
+  start <- max(1, trace.length - samples)
   
   # the start and end parameter do NOT work, using subsetting to achieve goal
   mcmcobj <- coda::mcmc(data=loglik.trace[start:trace.length], thin = thin)
@@ -178,15 +285,38 @@ convergence.test.Rcpp_MCMCAlgorithm <- function(object, n.samples = 10, frac1 = 
 #' @param mcmc MCMC object that has run the model fitting algorithm.
 #' 
 #' @param file A filename where the data will be stored.
-#' The file should end with the extension "Rdat".
 #' 
 #' @return This function has no return value.
 #' 
 #' @description \code{writeMCMCObject} stores the MCMC information from the 
 #' model fitting run in a file.
 #' 
-#' @details None.
+#' @examples
+#'
+#' ## saving the MCMC object after model fitting
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
+#' writeMCMCObject(mcmc = mcmc, file = file.path(tempdir(), "file.Rda"))
 #' 
+#' }
 writeMCMCObject <- function(mcmc, file){
   logPostTrace <- mcmc$getLogPosteriorTrace()
   logLikeTrace <- mcmc$getLogLikelihoodTrace()
@@ -209,6 +339,16 @@ writeMCMCObject <- function(mcmc, file){
 #' @details This MCMC object is not intended to be used to do another model fitting, only
 #' to graph the stored results.
 #' 
+#' @examples
+#' 
+#' ## loading mcmc objects from the filesystem
+#' \dontrun{
+#' # load one mcmc object
+#' mcmc <- loadMCMCObject(files = "mcmc.Rda")
+#' 
+#' # load and combine multiple mcmc objects. Useful when using checkpointing
+#' mcmc <- loadMCMCObject(files = c("mcmc1.Rda", "mcmc2.Rda"))
+#' }
 loadMCMCObject <- function(files){
   mcmc <- new(MCMCAlgorithm)
   samples <- 0

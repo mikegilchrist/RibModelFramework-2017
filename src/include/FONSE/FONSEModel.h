@@ -10,11 +10,13 @@ class FONSEModel : public Model
 		FONSEParameter *parameter;
 		double calculateLogLikelihoodRatioPerAA(Gene& gene, std::string grouping, double *mutation, double *selection, double phiValue);
 		double calculateMutationPrior(std::string grouping, bool proposed = false);
+		double a1;
 
 	public:
 		//Constructors & Destructors:
-		explicit FONSEModel();
+		FONSEModel(double a_1=4);
 		virtual ~FONSEModel();
+
 
 
 
@@ -26,7 +28,7 @@ class FONSEModel : public Model
 
 
 		//Initialization and Restart Functions:
-		virtual void initTraces(unsigned samples, unsigned num_genes);
+		virtual void initTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true);
 		virtual void writeRestartFile(std::string filename);
 
 
@@ -99,6 +101,8 @@ class FONSEModel : public Model
 		virtual void setCategoryProbability(unsigned mixture, double value);
 
 		virtual void updateCodonSpecificParameter(std::string grouping);
+		virtual void completeUpdateCodonSpecificParameter();
+
 		virtual void updateGibbsSampledHyperParameters(Genome &genome);
 		virtual void updateAllHyperParameter();
 		virtual void updateHyperParameter(unsigned hp);
@@ -109,17 +113,17 @@ class FONSEModel : public Model
 		void setParameter(FONSEParameter &_parameter);
 		virtual double calculateAllPriors();
 		void calculateLogCodonProbabilityVector(unsigned numCodons, unsigned position, unsigned minIndexValue,
-											 double* mutation, double* selection, double phi, std::vector <double> &codonProb);
-		void calculateCodonProbabilityVector(unsigned numCodons, unsigned position, double* mutation, double* selection, 
-												double phi, double codonProb[]);
+					double* mutation, double* selection, double phi, std::vector <double> &codonProb);
+		void calculateCodonProbabilityVector(unsigned numCodons, unsigned position, double* mutation, double* selection,
+					double phi, double codonProb[]);
 		virtual void getParameterForCategory(unsigned category, unsigned param, std::string aa, bool proposal,
-											 double* returnValue);
+					double* returnValue);
 
 
 
 		//R Section:
 #ifndef STANDALONE
-		std::vector<double> CalculateProbabilitiesForCodons(std::vector<double> mutation, std::vector<double> selection, double phi);
+		std::vector<double> CalculateProbabilitiesForCodons(std::vector<double> mutation, std::vector<double> selection, double phi, unsigned position);
 #endif
 
 	protected:

@@ -4,12 +4,14 @@
 \alias{initializeParameterObject}
 \title{Initialize Parameter}
 \usage{
-initializeParameterObject(genome = NULL, sphi = NULL, num.mixtures = 1,
-  gene.assignment = NULL, initial.expression.values = NULL, model = "ROC",
+initializeParameterObject(genome = NULL, sphi = NULL,
+  num.mixtures = 1, gene.assignment = NULL,
+  initial.expression.values = NULL, model = "ROC",
   split.serine = TRUE, mixture.definition = "allUnique",
   mixture.definition.matrix = NULL, init.with.restart.file = NULL,
-  mutation.prior.sd = 0.35, init.csp.variance = 0.0025,
-  init.sepsilon = 0.1)
+  mutation.prior.mean = 0, mutation.prior.sd = 0.35,
+  propose.by.prior = FALSE, init.csp.variance = 0.0025,
+  init.sepsilon = 0.1, init.w.obs.phi = FALSE)
 }
 \arguments{
 \item{genome}{An object of type Genome necessary for the initialization of the Parameter object.
@@ -31,10 +33,10 @@ The default Value is NULL.}
 The length of the vector has to equal the number of genes in the Genome object.
 The default value is NULL.}
 
-\item{model}{Specifies the model used. Valid options are "ROC", "RFP", "PANSE", or "FONSE".
+\item{model}{Specifies the model used. Valid options are "ROC", "PA", "PANSE", or "FONSE".
 The default model is "ROC".
 ROC is described in Gilchrist et al. 2015.
-RFP, PANSE and FONSE are currently unpublished.}
+PA, PANSE and FONSE are currently unpublished.}
 
 \item{split.serine}{Whether serine should be considered as 
 one or two amino acids when running the model.
@@ -59,13 +61,28 @@ previous Parameter object.
 If given, all other arguments will be ignored.
 The default value for init.with.restart.file is NULL.}
 
-\item{mutation.prior.sd}{Controlling the standard deviation of the normal 
-prior on the mutation parameters}
+\item{mutation.prior.mean}{Controlling the mean of the normal prior on mutation paramters.
+If passed in as single number (default is 0), this will be the mean value for all categories, for all codons. User may also
+supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+the number of mutation categories definded by user.}
+
+\item{mutation.prior.sd}{Controlling the standard deviation of the normal prior on the mutation parameters.
+If passed in as single number (default is 0.35), this will be the standard deviation value for all categories, for all codons. User may also
+supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+the number of mutation categories definded by user.}
+
+\item{propose.by.prior}{Mutation bias parameters will be proposed based on the means and standard deviations set in mutation.prior.mean and mutation.prior.sd}
 
 \item{init.csp.variance}{specifies the initial proposal width for codon specific parameter (default is 0.0025). 
 The proposal width adapts during the runtime to reach a taget acceptance rate of ~0.25}
 
 \item{init.sepsilon}{specifies the initial value for sepsilon. default is 0.1}
+
+\item{init.w.obs.phi}{TRUE: initialize phi values with observed phi values 
+(data from RNAseq, mass spectrometry, ribosome footprinting) Default is FALSE. 
+If multiple observed phi values exist for a gene, the geometric mean of these values is used as initial phi.
+When using this function, one should remove any genes with 
+missing phi values, as these genes will not have an initial phi value.}
 }
 \value{
 parameter Returns an initialized Parameter object.
@@ -84,10 +101,36 @@ representation would be \code{matrix(c(1,2,3,1,2,3), ncol=2)}
 where each row represents a mixture, the first column represents the mutation
 category, and the second column represents the selection category.
 Another example would be mixture.definition = "selectionShared" and numMixtures = 4 (
-\code{matrix(c(1,2,3, 4,1,1,1,1), ncol=2)}).
+\code{matrix(c(1,2,3,4,1,1,1,1), ncol=2)}).
 In this case, the selection category is the same for every mixture. If a matrix
 is given, and it is valid, then the mutation/selection relationship will be
 defined by the given matrix and the keyword will be ignored. A matrix should only
 be given in cases where the keywords would not create the desired matrix.
 }
+\examples{
 
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+restart_file <- system.file("extdata", "restart_file.rst", package = "AnaCoDa")
+
+genome <- initializeGenomeObject(file = genome_file)
+
+## initialize a new parameter object
+sphi_init <- 1
+numMixtures <- 1
+geneAssignment <- rep(1, length(genome))
+parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+                                       num.mixtures = numMixtures, 
+                                       gene.assignment = geneAssignment, 
+                                       mixture.definition = "allUnique")
+
+## re-initialize a parameter object from a restart file. Useful for checkpointing
+parameter <- initializeParameterObject(init.with.restart.file = restart_file)
+
+## initialize a parameter object with a custon mixture definition matrix
+def.matrix <- matrix(c(1,1,1,2), ncol=2)
+geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2,
+                                       gene.assignment = geneAssignment,
+                                       mixture.definition.matrix = def.matrix)
+
+}

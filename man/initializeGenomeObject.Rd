@@ -4,11 +4,12 @@
 \alias{initializeGenomeObject}
 \title{Genome Initialization}
 \usage{
-initializeGenomeObject(file, genome = NULL, observed.expression.file = NULL,
-  fasta = TRUE, match.expression.by.id = TRUE)
+initializeGenomeObject(file, genome = NULL,
+  observed.expression.file = NULL, fasta = TRUE, simulated = FALSE,
+  match.expression.by.id = TRUE, append = FALSE)
 }
 \arguments{
-\item{file}{A file of coding sequences in fasta or RFP format}
+\item{file}{A file of coding sequences in fasta or RFPData format}
 
 \item{genome}{A genome object can be passed in to concatenate the input file to it (optional).}
 
@@ -16,10 +17,15 @@ initializeGenomeObject(file, genome = NULL, observed.expression.file = NULL,
 empirical expression rates (optional).}
 
 \item{fasta}{A boolean value which decides whether to initialize with a
-fasta file or an RFP value file. (TRUE for fasta, FALSE for RFP)}
+fasta file or an RFPData file. (TRUE for fasta, FALSE for RFPData)}
 
-\item{match.expression.by.id}{If TRUE (default) observed expression values will be assigned by matching sequence identifier.
-If FALSE observed expression values will be assigned by order}
+\item{simulated}{boolean to determine if the data should be treated as a simulated data set (Default = FALSE).}
+
+\item{match.expression.by.id}{If TRUE (default), observed expression values will be assigned by matching sequence identifier.
+If FALSE, observed expression values will be assigned by order.}
+
+\item{append}{If TRUE (FALSE is default), function will read in additional genome data to append to an existing genome.
+If FALSE, genome data is cleared before reading in data (no preexisting data).}
 }
 \value{
 This function returns the initialized Genome object.
@@ -27,4 +33,20 @@ This function returns the initialized Genome object.
 \description{
 \code{initializeGenomeObject} initializes the Rcpp Genome object
 }
+\examples{
 
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+genes_file <- system.file("extdata", "more_genes.fasta", package = "AnaCoDa")
+expression_file <- system.file("extdata", "expression.csv", package = "AnaCoDa")
+ 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+
+## reading genome and observed expression data
+genome <- initializeGenomeObject(file = genome_file, observed.expression.file = expression_file)
+ 
+## add aditional genes to existing genome
+genome <- initializeGenomeObject(file = genome_file)
+genome <- initializeGenomeObject(file = genes_file, genome = genome, append = TRUE)   
+
+}

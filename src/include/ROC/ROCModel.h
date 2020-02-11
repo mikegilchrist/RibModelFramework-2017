@@ -13,14 +13,12 @@ class ROCModel : public Model
 
 		double calculateLogLikelihoodPerAAPerGene(unsigned numCodons, int codonCount[], double mutation[], double selection[], double phiValue);
 		double calculateMutationPrior(std::string grouping, bool proposed = false); // TODO add to FONSE as well? // cedric
-		void obtainCodonCount(SequenceSummary *seqsum, std::string curAA, int codonCount[]);
+		void obtainCodonCount(SequenceSummary *sequenceSummary, std::string curAA, int codonCount[]);
 
     public:
 		//Constructors & Destructors:
 		ROCModel(bool _withPhi = false, bool _fix_sEpsilon = false);
 		virtual ~ROCModel();
-
-
 
 		//Likelihood Ratio Functions:
 		virtual void calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex, unsigned k,
@@ -32,7 +30,7 @@ class ROCModel : public Model
 
 
 		//Initialization and Restart Functions:
-		virtual void initTraces(unsigned samples, unsigned num_genes);
+		virtual void initTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true);
 		virtual void writeRestartFile(std::string filename);
 
 
@@ -105,6 +103,7 @@ class ROCModel : public Model
 		virtual void setCategoryProbability(unsigned mixture, double value);
 
 		virtual void updateCodonSpecificParameter(std::string grouping);
+		virtual void completeUpdateCodonSpecificParameter();
 		virtual void updateGibbsSampledHyperParameters(Genome &genome);
 		virtual void updateAllHyperParameter();
 		virtual void updateHyperParameter(unsigned hp);

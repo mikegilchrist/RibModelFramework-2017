@@ -4,8 +4,8 @@
 \alias{plot.Rcpp_ROCModel}
 \title{Plot Model Object}
 \usage{
-\method{plot}{Rcpp_ROCModel}(x, genome = NULL, samples = 100, mixture = 1,
-  simulated = FALSE, ...)
+\method{plot}{Rcpp_ROCModel}(x, genome = NULL, samples = 100,
+  mixture = 1, simulated = FALSE, ...)
 }
 \arguments{
 \item{x}{An Rcpp model object initialized with \code{initializeModelObject}.}
@@ -32,4 +32,3 @@ using the initial.expression.values parameter found in initializeParameterObject
 Otherwise, the expression values plotted will just be SCUO values estimated upon
 initialization of the Parameter object.
 }
-

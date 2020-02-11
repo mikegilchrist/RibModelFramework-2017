@@ -50,6 +50,9 @@ RCPP_MODULE(Trace_mod)
     .method("setObservedSynthesisNoiseTrace", &Trace::setObservedSynthesisNoiseTrace)
     .method("setCodonSpecificParameterTrace", &Trace::setCodonSpecificParameterTrace)
 
+    //PANSE Specific
+    .method("resizeNumberCodonSpecificParameterTrace", &Trace::resizeNumberCodonSpecificParameterTrace)
+
     ;
 }
 #endif

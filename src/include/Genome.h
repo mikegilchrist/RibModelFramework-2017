@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <functional>
 
 #ifndef STANDALONE
 #include <Rcpp.h>
@@ -25,7 +26,12 @@ class Genome
 		std::vector <Gene> simulatedGenes;
 		std::vector <unsigned> numGenesWithPhi; //Number of phi sets is vector size, value is number of genes
 												//with a phi value for that set. Values should currently be equal.
-        std::vector<std::string> RFPCategoryNames;
+        std::vector<std::string> RFPCountColumnNames;
+        unsigned prev_genome_size;
+        unsigned totalRFPCount;
+
+
+  	public:
 
 	public:
 
@@ -37,17 +43,17 @@ class Genome
 
 
 		//File I/O Functions:
-		void readFasta(std::string filename, bool Append = false);
+		void readFasta(std::string filename, bool append = false);
 		void writeFasta(std::string filename, bool simulated = false);
-		void readRFPFile(std::string filename); //TODO: Remove
-		void writeRFPFile(std::string filename, bool simulated = false); //TODO: Remove
-		void readPAFile(std::string filename, bool Append = false);
-		void writePAFile(std::string filename, bool simulated = false); //TODO: Complete
+		void readRFPData(std::string filename, bool append = false, bool positional = false);
+		void writeRFPData(std::string filename, bool simulated = false);
 		void readObservedPhiValues(std::string filename, bool byId = true);
+		void removeUnobservedGenes();
+        void readSimulatedGenomeFromPAModel(std::string filename);
 
 
 		//Gene Functions:
-		void addGene(const Gene& gene, bool simulated = false);
+		void addGene(Gene& gene, bool simulated = false);
 		std::vector <Gene> getGenes(bool simulated = false);
 		unsigned getNumGenesWithPhiForIndex(unsigned index);
 		Gene& getGene(unsigned index, bool simulated = false);
@@ -59,8 +65,9 @@ class Genome
 		void clear();
 		Genome getGenomeForGeneIndices(std::vector <unsigned> indices, bool simulated = false);
 		std::vector <unsigned> getCodonCountsPerGene(std::string codon);
-        std::vector <std::string> getRFPCategoryNames();
-		void addRFPCategoryName(std::string categoryName);
+        std::vector <std::string> getRFPCountColumnNames();
+		void addRFPCountColumnName(std::string categoryName);
+		unsigned getSumRFP();
 
 		//Testing Functions:
 		std::vector <unsigned> getNumGenesWithPhi();

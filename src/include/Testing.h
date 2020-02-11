@@ -9,20 +9,19 @@
 #include "base/Parameter.h"
 #include "CovarianceMatrix.h"
 #include "MCMCAlgorithm.h"
-//#include "base/Trace.h"
 
 
 int testUtility();
 int testSequenceSummary();
 int testGene();
-void testGenomePAHelper(Genome* genome, bool simulated);
+void testGenomePAHelper(Genome* genome, bool simulated); //Only used internally for testGenome
+bool testGenomeSimulatedPAEqualityHelper(Genome genome1, Genome genome2); //Only used internally for testGenome
 int testGenome(std::string testFileDir);
-int testParameter();
-int testParameterWithFile(std::string filename); //temporary
+int testParameter(std::string testFileDir);
+//int testParameterWithFile(std::string filename); //TODO: Rework or remove
 int testCovarianceMatrix();
-int testRFPParameter();
+//int testPAParameter(); //TODO: Rework or remove
 int testMCMCAlgorithm();
-//int testTrace();
 
 //Blank header
 #endif // Testing_H

@@ -1,7 +1,8 @@
 #ifndef STANDALONE
 #include "include/base/Parameter.h"
 #include "include/ROC/ROCParameter.h"
-#include "include/RFP/RFPParameter.h"
+#include "include/PA/PAParameter.h"
+#include "include/PANSE/PANSEParameter.h"
 #include "include/FONSE/FONSEParameter.h"
 #include <Rcpp.h>
 using namespace Rcpp;
@@ -39,6 +40,7 @@ RCPP_MODULE(Parameter_mod)
 
 		//Group List Functions:
 		.method("getGroupList", &Parameter::getGroupList)
+		.method("setGroupList", &Parameter::setGroupList)
 
 		//Trace Functions:
 		.method("getTraceObject", &Parameter::getTraceObject) //TODO: only used in R?
@@ -53,10 +55,10 @@ RCPP_MODULE(Parameter_mod)
 		.method("setLastIteration", &Parameter::setLastIteration) //Not a R wrapper
 
 		//Posterior, Variance, and Estimates Functions:
-		.method("getSynthesisRatePosteriorMeanByMixtureElementForGene",
-		        &Parameter::getSynthesisRatePosteriorMeanByMixtureElementForGene)
-		.method("getSynthesisRateVarianceByMixtureElementForGene",
-		        &Parameter::getSynthesisRateVarianceByMixtureElementForGene)
+		.method("getSynthesisRatePosteriorMeanForGene",
+		        &Parameter::getSynthesisRatePosteriorMeanForGene)
+		.method("getSynthesisRateVarianceForGene",
+		        &Parameter::getSynthesisRateVarianceForGene)
 		.method("getEstimatedMixtureAssignmentForGene", &Parameter::getEstimatedMixtureAssignmentForGene,
 		        "returns the mixture assignment for a given gene")
 		.method("getEstimatedMixtureAssignmentProbabilitiesForGene", &Parameter::getEstimatedMixtureAssignmentProbabilitiesForGene,
@@ -66,6 +68,7 @@ RCPP_MODULE(Parameter_mod)
 		.method("getStdDevSynthesisRateVariance", &Parameter::getStdDevSynthesisRateVariance)
 		.method("getCodonSpecificVariance", &Parameter::getCodonSpecificVarianceForCodon)
         .method("getCodonSpecificQuantile", &Parameter::getCodonSpecificQuantileForCodon)
+        .method("getExpressionQuantile", &Parameter::getExpressionQuantileForGene)
 
 		//Other Functions:
 		.method("getMixtureAssignment", &Parameter::getMixtureAssignmentR)
@@ -75,7 +78,7 @@ RCPP_MODULE(Parameter_mod)
 		//setNumMixtureElements it taken care in the properties section below
 
 		//Other Functions:
-		.method("calculateSelectionCoefficients", &ROCParameter::calculateSelectionCoefficientsR)
+		.method("calculateSelectionCoefficients", &Parameter::calculateSelectionCoefficientsR)
 
 
 
@@ -121,7 +124,10 @@ RCPP_MODULE(Parameter_mod)
 
 		//Prior Functions:
 		.method("getMutationPriorStandardDeviation", &ROCParameter::getMutationPriorStandardDeviation)
-		.method("setMutationPriorStandardDeviation", &ROCParameter::setMutationPriorStandardDeviation)
+		.method("getMutationPriorMean", &ROCParameter::getMutationPriorMean)
+		.method("setMutationPriorStandardDeviation", &ROCParameter::setMutationPriorStandardDeviationR)
+		.method("setMutationPriorMean", &ROCParameter::setMutationPriorMeanR)
+		.method("setProposeByPrior", &ROCParameter::setProposeByPrior)
 
 		//Posterior, Variance, and Estimates Functions:
 		//TODO: these functions are not wrapped! May not run correctly
@@ -137,7 +143,8 @@ RCPP_MODULE(Parameter_mod)
 		//Listed in the properties section below. NOTE: these getter/setters are ONLY
 		//used in R
 
-
+		.method("fixDM",&ROCParameter::fixDM)//Not a R wrapper
+		.method("fixDEta",&ROCParameter::fixDEta)//Not a R wrapper
 
 
 		//Other Functions:
@@ -149,12 +156,10 @@ RCPP_MODULE(Parameter_mod)
 		        &ROCParameter::setCurrentMutationParameter) //R Specific
 		.property("currentSelectionParameter", &ROCParameter::getCurrentSelectionParameter,
 		        &ROCParameter::setCurrentSelectionParameter) //R Specific
-		.property("mutation_prior_sd", &ROCParameter::getMutationPriorStandardDeviation,
-		        &ROCParameter::setMutationPriorStandardDeviation)
 		;
 
 
-	class_<RFPParameter>("RFPParameter")
+	class_<PAParameter>("PAParameter")
 		.derives<Parameter>("Parameter")
 
 
@@ -168,9 +173,9 @@ RCPP_MODULE(Parameter_mod)
 
 
 		//Initialization, Restart, Index Checking:
-		.method("initAlpha", &RFPParameter::initAlphaR)
-		.method("initLambdaPrime", &RFPParameter::initLambdaPrimeR)
-		.method("initMutationSelectionCategories", &RFPParameter::initMutationSelectionCategoriesR)
+		.method("initAlpha", &PAParameter::initAlphaR)
+		.method("initLambdaPrime", &PAParameter::initLambdaPrimeR)
+		.method("initMutationSelectionCategories", &PAParameter::initMutationSelectionCategoriesR)
 
 
 		//CSP Functions:
@@ -178,20 +183,63 @@ RCPP_MODULE(Parameter_mod)
 		//used in R
 
 		//Other Functions:
-		.method("getParameterForCategory", &RFPParameter::getParameterForCategoryR)
+		.method("getParameterForCategory", &PAParameter::getParameterForCategoryR)
 
 
 
-		.property("proposedAlphaParameter", &RFPParameter::getProposedAlphaParameter,
-		        &RFPParameter::setProposedAlphaParameter) //R Specific
-		.property("proposedLambdaPrimeParameter", &RFPParameter::getProposedLambdaPrimeParameter,
-		        &RFPParameter::setProposedLambdaPrimeParameter) //R Specific
-		.property("currentAlphaParameter", &RFPParameter::getCurrentAlphaParameter,
-		        &RFPParameter::setCurrentAlphaParameter) //R Specific
-		.property("currentLambdaPrimeParameter", &RFPParameter::getCurrentLambdaPrimeParameter,
-		        &RFPParameter::setCurrentLambdaPrimeParameter) //R Specific
+		.property("proposedAlphaParameter", &PAParameter::getProposedAlphaParameter,
+		        &PAParameter::setProposedAlphaParameter) //R Specific
+		.property("proposedLambdaPrimeParameter", &PAParameter::getProposedLambdaPrimeParameter,
+		        &PAParameter::setProposedLambdaPrimeParameter) //R Specific
+		.property("currentAlphaParameter", &PAParameter::getCurrentAlphaParameter,
+		        &PAParameter::setCurrentAlphaParameter) //R Specific
+		.property("currentLambdaPrimeParameter", &PAParameter::getCurrentLambdaPrimeParameter,
+		        &PAParameter::setCurrentLambdaPrimeParameter) //R Specific
 		;
 
+	class_<PANSEParameter>("PANSEParameter")
+		.derives<Parameter>("Parameter")
+
+
+
+		//Constructors & Destructors:
+        .constructor()
+		.constructor <std::string>()
+		.constructor <std::vector<double>, std::vector<unsigned>, std::vector<unsigned>, bool>()
+		.constructor <std::vector<double>, unsigned, std::vector<unsigned>, bool, std::string>()
+
+
+
+		//Initialization, Restart, Index Checking:
+		.method("initAlpha", &PANSEParameter::initAlphaR)
+		.method("initLambdaPrime", &PANSEParameter::initLambdaPrimeR)
+		.method("initNSERate", &PANSEParameter::initNSERateR)
+		.method("initMutationSelectionCategories", &PANSEParameter::initMutationSelectionCategoriesR)
+		.method("fixAlpha",&PANSEParameter::fixAlpha)
+		.method("fixLambdaPrime",&PANSEParameter::fixLambdaPrime)
+		.method("fixNSERate",&PANSEParameter::fixNSERate)
+
+		//CSP Functions:
+		//Listed in the properties section below. NOTE: these getter/setters are ONLY
+		//used in R
+
+		//Other Functions:
+		.method("getParameterForCategory", &PANSEParameter::getParameterForCategoryR)
+		.method("setPartitionFunction", &PANSEParameter::setPartitionFunction)
+
+		.property("proposedAlphaParameter", &PANSEParameter::getProposedAlphaParameter,
+		        &PANSEParameter::setProposedAlphaParameter) //R Specific
+		.property("proposedLambdaPrimeParameter", &PANSEParameter::getProposedLambdaPrimeParameter,
+		        &PANSEParameter::setProposedLambdaPrimeParameter) //R Specific
+        .property("proposedNSERateParameter", &PANSEParameter::getProposedNSERateParameter,
+                &PANSEParameter::setProposedNSERateParameter) //R Specific
+		.property("currentAlphaParameter", &PANSEParameter::getCurrentAlphaParameter,
+		        &PANSEParameter::setCurrentAlphaParameter) //R Specific
+		.property("currentLambdaPrimeParameter", &PANSEParameter::getCurrentLambdaPrimeParameter,
+		        &PANSEParameter::setCurrentLambdaPrimeParameter) //R Specific
+        .property("currentNSERateParameter", &PANSEParameter::getCurrentNSERateParameter,
+                &PANSEParameter::setCurrentNSERateParameter) //R Specific
+		;
 
 	class_<FONSEParameter>("FONSEParameter")
 		.derives<Parameter>("Parameter")
