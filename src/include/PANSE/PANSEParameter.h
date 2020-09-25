@@ -21,14 +21,20 @@ class PANSEParameter: public Parameter {
         std::vector <double> partitionFunction_proposed;
         std::vector <double> partitionFunction;
 
+        std::vector<double> std_nse;
+
         bool fix_alpha=false;
         bool fix_lp=false;
         bool fix_nse=false;
+        bool share_nse=false;
         
         double std_partitionFunction;
         unsigned numAcceptForPartitionFunction;
-
+        std::vector<unsigned> numAcceptForNSERates;
 		double bias_csp;
+
+		// Sum of all RFP counts
+		unsigned Y;
 
 	public:
         //Testing Functions
@@ -62,6 +68,7 @@ class PANSEParameter: public Parameter {
 		void fixAlpha();
 		void fixLambdaPrime();
 		void fixNSERate();
+		void shareNSERate();
 
         //CSP Read Functions:
         void readAlphaValues(std::string filename);
@@ -76,7 +83,8 @@ class PANSEParameter: public Parameter {
 		//CSP Functions:
 		double getCurrentCodonSpecificProposalWidth(unsigned index);
 		void proposeCodonSpecificParameter();
-		void updateCodonSpecificParameter(std::string grouping); //Adds to an update queue
+		void updateCodonSpecificParameter(std::string grouping);
+		void updateCodonSpecificParameter(std::string grouping,std::string param);
         void completeUpdateCodonSpecificParameter();
 
         //partitionFunction Functions: Mostly tested, see comments.
@@ -94,8 +102,9 @@ class PANSEParameter: public Parameter {
 		//Other functions:
 		double getParameterForCategory(unsigned category, unsigned paramType, std::string codon, bool proposal);
 
-
-
+		//For setting Y value
+		void setTotalRFPCount(Genome& genome);
+		unsigned getTotalRFPCount();
 
 
 
@@ -113,6 +122,7 @@ class PANSEParameter: public Parameter {
 
 
 		//Initialization, Restart, Index Checking:
+		void initCovarianceMatrix(SEXP matrix, std::string codon);
 		void initAlphaR(double alphaValue, unsigned mixtureElement, std::string codon);
 		void initLambdaPrimeR(double lambdaPrimeValue, unsigned mixtureElement, std::string codon);
         void initNSERateR(double NSETRateValue, unsigned mixtureElement, std::string codon);

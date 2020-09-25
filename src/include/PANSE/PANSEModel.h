@@ -5,7 +5,6 @@
 #include "../base/Model.h"
 #include "PANSEParameter.h"
 #include "../SequenceSummary.h"
-
 #include <sstream>
 
 class PANSEModel: public Model
@@ -16,25 +15,39 @@ class PANSEModel: public Model
 		double currSigmaCalculationSummationFor1, currSigmaCalculationSummationFor2;
 		double propSigmaCalculationSummationFor1, propSigmaCalculationSummationFor2;
 		double calculateLogLikelihoodPerCodonPerGene(double currAlpha, double currLambdaPrime,
-				unsigned currRFPObserved, double phiValue, double prevSigma);
+				unsigned currRFPObserved, double phiValue, double prevSigma, double lgamma_currAlpha, double log_currLambdaPrime, double log_phi,double lgamma_rfp_alpha);
+		std::vector<std::vector<double>> lgamma_currentAlpha;
+   		std::vector<std::vector<double>> log_currentLambda;
+        std::vector<std::vector<std::vector<double>>> lgamma_rfp_alpha;
+      
+        std::vector<double> prob_successful;
 
+        virtual void calculateZ(std::string grouping,Genome& genome,std::vector<double> &Z,std::string param);
+
+        virtual void fillMatrices(Genome& genome);
+        virtual void clearMatrices();
 
 	public:
 		//Constructors & Destructors:
-		explicit PANSEModel(unsigned RFPCountColumn = 0u);
+		explicit PANSEModel(unsigned RFPCountColumn = 0u, bool _withPhi = false, bool _fix_sEpsilon = false);
 		virtual ~PANSEModel();
 
-
+		std::string type = "PANSE";
 
 		//Likelihood Ratio Functions:
 		virtual void calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex, unsigned k,
 				double* logProbabilityRatio); // Depends on RFPCountColumn
+		//purely a placeholder
 		virtual void calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grouping, Genome& genome,
-				std::vector<double> &logAcceptanceRatioForAllMixtures); // Depends on RFPCountColumn
+				std::vector<double> &logAcceptanceRatioForAllMixtures);
+		virtual void calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grouping, Genome& genome,
+				std::vector<double> &logAcceptanceRatioForAllMixtures,std::string param="Elongation"); // Depends on RFPCountColumn
+		
+
 		virtual void calculateLogLikelihoodRatioForHyperParameters(Genome &genome, unsigned iteration,
 				std::vector <double> &logProbabilityRatio);
 
-
+		
 		//Initialization and Restart Functions:
 		virtual void initTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true);
 		virtual void writeRestartFile(std::string filename);
@@ -109,8 +122,9 @@ class PANSEModel: public Model
 		virtual void setMixtureAssignment(unsigned i, unsigned catOfGene);
 		virtual void setCategoryProbability(unsigned mixture, double value);
 
-		virtual void updateCodonSpecificParameter(std::string aa);
-		virtual void updateGibbsSampledHyperParameters(Genome &genome);
+		virtual void updateCodonSpecificParameter(std::string codon);
+		virtual void updateCodonSpecificParameter(std::string codon,std::string param="Elongation");
+		//virtual void updateGibbsSampledHyperParameters(Genome &genome);
 		virtual void updateAllHyperParameter();
 		virtual void updateHyperParameter(unsigned hp);
 
@@ -125,27 +139,32 @@ class PANSEModel: public Model
 		double UpperIncompleteGammaHelper(double s, double x);
 		double UpperIncompleteGamma(double s, double x);
 		double UpperIncompleteGammaLog(double s, double x);
-        double GeneralizedIntegral(double p, double z);
-
-        double GeneralizedIntegralLog(double p, double z);
+      
         double elongationProbability(double currAlpha, double currLambda, double currNSE);
         double elongationProbabilityLog(double currAlpha, double currLambda, double currNSE);
-        double elongationUntilIndexProbability(int index, std::vector <double> lambdas, std::vector <double> NSERates);
         
-        double elongationUntilIndexProbabilityLog(int index, std::vector <double> lambdas, std::vector <double> NSERates);
-        double prob_Y_g(double curralpha, int sample_size, double lambda_prime, double psi, double prevdelta);
-        double prob_Y_g_log(double curralpha, int sample_size, double lambda_prime, double psi, double prevdelta);
-
         double elongationUntilIndexApproximation1Probability(double alpha, double lambda, double v, double current);
         double elongationUntilIndexApproximation2Probability(double alpha, double lambda, double v, bool proposed);
-        double elongationUntilIndexApproximation1ProbabilityLog(double alpha, double lambda, double v, bool proposed);
+        double elongationUntilIndexApproximation1ProbabilityLog(double alpha, double lambda, double v, double current);
         double elongationUntilIndexApproximation2ProbabilityLog(double alpha, double lambda, double v, double current);
 
         //Psi-Phi Conversion Functions
         double psi2phi(double psi, double sigma);
         double phi2psi(double phi, double sigma);
 
+
+      	virtual double getNoiseOffset(unsigned index, bool proposed = false);
+		virtual double getObservedSynthesisNoise(unsigned index) ;
+		virtual double getCurrentNoiseOffsetProposalWidth(unsigned index);
+		virtual void updateNoiseOffset(unsigned index);
+		virtual void updateNoiseOffsetTrace(unsigned sample);
+		virtual void updateObservedSynthesisNoiseTrace(unsigned sample);
+		virtual void adaptNoiseOffsetProposalWidth(unsigned adaptiveWidth, bool adapt = true);
+		virtual void updateGibbsSampledHyperParameters(Genome &genome);
+
+
 	protected:
+		
 };
 
 #endif // PANSEMODEL_H

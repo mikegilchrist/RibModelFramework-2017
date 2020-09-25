@@ -293,6 +293,7 @@ void Genome::readSimulatedGenomeFromPAModel(std::string filename)
 */
 void Genome::readRFPData(std::string filename, bool append, bool positional)
 {
+	prev_genome_size = genes.size();
 	try {
 		if (!append) clear();
 		totalRFPCount = 0;
@@ -342,13 +343,13 @@ void Genome::readRFPData(std::string filename, bool append, bool positional)
 			while (std::getline(Fin, tmp))
 			{
 
-            #ifndef STANDALONE
-            Rcpp::checkUserInterrupt();
-            #endif
+	            #ifndef STANDALONE
+	            Rcpp::checkUserInterrupt();
+	            #endif
 
-        // Remove whitespace from the string
-        tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
-                  std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
+		        // Remove whitespace from the string
+		        tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
+	                  std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
 
 				pos = tmp.find(',');
 				std::string ID = tmp.substr(0, pos);
@@ -378,8 +379,14 @@ void Genome::readRFPData(std::string filename, bool append, bool positional)
 					{
 						tmpGene.setId(prevID);
 						tmpGene.setDescription("No description for PA(NSE) Model");
-						if(positional) tmpGene.setPANSESequence(table);
-						else tmpGene.setPASequence(table);
+						if(positional) 
+						{
+							tmpGene.setPANSESequence(table);
+						}
+						else 
+						{
+							tmpGene.setPASequence(table);
+						}
 						addGene(tmpGene, false); //add to genome
 						totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
 						tmpGene.clear();
@@ -492,19 +499,16 @@ void Genome::writeRFPData(std::string filename, bool simulated)
 				}
 			}
 		}
-            // We are printing a simulated gene: There is no position-based RFP calculations.
-            // This is a different format than the standard RFPData one.
 		else
 		{
 			Fout << "GeneID,Position,Codon,RFPCount\n";
-
 			for (unsigned geneIndex = 0u; geneIndex < numGenes; geneIndex++)
 			{
                 //unsigned position = 1u;
 				Gene *currentGene = &simulatedGenes[geneIndex];
                 SequenceSummary *sequenceSummary = currentGene->getSequenceSummary();
                 std::vector <unsigned> positions = sequenceSummary->getPositionCodonID();
-                std::vector <int> rfpCounts = sequenceSummary->getRFPCount(0);
+                std::vector <unsigned> rfpCounts = sequenceSummary->getRFPCount(0);
 				for (unsigned positionIndex = 0u; positionIndex < positions.size(); positionIndex++)
 				{
 					unsigned codonID = positions[positionIndex];

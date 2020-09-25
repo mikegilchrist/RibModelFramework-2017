@@ -6,19 +6,19 @@
 #' 
 #' @param genome A genome object can be passed in to concatenate the input file to it (optional).
 #' 
-#' @param observed.expression.file A string containing the location of a file containing
-#'  empirical expression rates (optional).
+#' @param observed.expression.file String containing the location of a file containing
+#'  empirical expression rates (optional). Default value is NULL.
 #' 
-#' @param fasta A boolean value which decides whether to initialize with a
-#'  fasta file or an RFPData file. (TRUE for fasta, FALSE for RFPData)
+#' @param fasta Boolean value indicating whether \code{file} argument is a
+#'  fasta file (TRUE) or an RFPData file (FALSE). Default value is TRUE.
 #' 
-#' @param positional boolean to determine if the positional information in the RFP file is necessary.
+#' @param positional Boolean indicating if the positional information in the RFPData file is necessary. Default value is FALSE
 #' 
-#' @param match.expression.by.id If TRUE (default), observed expression values will be assigned by matching sequence identifier.
-#' If FALSE, observed expression values will be assigned by order.
+#' @param match.expression.by.id If TRUE, observed expression values will be assigned by matching sequence identifier. 
+#' If FALSE, observed expression values will be assigned by order. Default value is TRUE. 
 #' 
-#' @param append If TRUE (FALSE is default), function will read in additional genome data to append to an existing genome.
-#' If FALSE, genome data is cleared before reading in data (no preexisting data). 
+#' @param append If TRUE, function will read in additional genome data to append to an existing genome.  
+#' If FALSE, genome data is cleared before reading in data (no preexisting data). Default value is FALSE.
 #' 
 #' @return This function returns the initialized Genome object.
 #' 
@@ -66,7 +66,7 @@ initializeGenomeObject <- function(file, genome=NULL, observed.expression.file=N
 #' 
 #' @description provides the codon counts for a fiven amino acid across all genes
 #' 
-#' @details The returned matrix containes a row for each gene and a coloumn 
+#' @details The returned matrix containes a row for each gene and a column 
 #' for each synonymous codon of \code{aa}.
 #' 
 #' @examples 
@@ -85,8 +85,8 @@ getCodonCounts <- function(genome){
   })
   codonCounts <- do.call("cbind", codonCounts)
   colnames(codonCounts) <- codons
-  ORF <- cbind(ORF, codonCounts)
-  return(as.data.frame(ORF))
+  rownames(codonCounts) <- ORF
+  return(as.data.frame(codonCounts,stringsAsFactors = F))
 }
 
 #' Get Codon Counts For a specific Amino Acid

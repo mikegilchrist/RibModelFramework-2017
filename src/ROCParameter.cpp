@@ -81,25 +81,27 @@ void ROCParameter::initROCParameterSet()
 	mutation_prior_sd.resize(numMutationCategories);
 	for (int i=0; i < numMutationCategories; i++)
 	{
+	  // POTENTIAL ISSUE: Shouldn't we use (numParam) instead of (40)
 		mutation_prior_mean[i].resize(40);
 		mutation_prior_sd[i].resize(40);
 		std::vector<double> tmp(40, 0.0);
 		mutation_prior_mean[i] = tmp;
 		mutation_prior_sd[i] = tmp;
 	}
+	// POTENTIAL ISSUE: This seems to assume splitSer = True
 	groupList = {"A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "N", "P", "Q", "R", "S", "T", "V", "Y", "Z"};
 	// proposal bias and std for codon specific parameter
 	bias_csp = 0;
 
 
-	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
-	{
-		noiseOffset[i] = 0.1;
-		noiseOffset_proposed[i] = 0.1;
-		std_NoiseOffset[i] = 0.1;
-		observedSynthesisNoise[i] = 0.1;
-		numAcceptForNoiseOffset[i] = 0;
-	}
+	// for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+	// {
+	// 	noiseOffset[i] = 0.1;
+	// 	noiseOffset_proposed[i] = 0.1;
+	// 	std_NoiseOffset[i] = 0.1;
+	// 	observedSynthesisNoise[i] = 0.1;
+	// 	numAcceptForNoiseOffset[i] = 0;
+	// }
 
 	//may need getter fcts
 
@@ -144,9 +146,13 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 	std::vector <double> mat;
 	input.open(filename.c_str());
 	if (input.fail())
-		my_printError("Error opening file % to initialize from restart file.\n", filename.c_str());
-	else
 	{
+		my_printError("Error opening file % to initialize from restart file.\n", filename.c_str());
+		my_printError("please use absolute path");
+		return;
+	}
+	else
+	  {
 		std::string tmp, variableName;
 		unsigned cat = 0;
 		while (getline(input, tmp))
@@ -228,34 +234,34 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 						std_csp.push_back(val);
 					}
 				}
-				else if (variableName == "noiseOffset")
-				{
-					double val;
-					iss.str(tmp);
-					while (iss >> val)
-					{
-						noiseOffset.push_back(val);
-						noiseOffset_proposed.push_back(val);
-					}
-				}
-				else if (variableName == "observedSynthesisNoise")
-				{
-					double val;
-					iss.str(tmp);
-					while (iss >> val)
-					{
-						observedSynthesisNoise.push_back(val);
-					}
-				}
-				else if (variableName == "std_NoiseOffset")
-				{
-					double val;
-					iss.str(tmp);
-					while (iss >> val)
-					{
-						std_NoiseOffset.push_back(val);
-					}
-				}
+				// else if (variableName == "noiseOffset")
+				// {
+				// 	double val;
+				// 	iss.str(tmp);
+				// 	while (iss >> val)
+				// 	{
+				// 		noiseOffset.push_back(val);
+				// 		noiseOffset_proposed.push_back(val);
+				// 	}
+				// }
+				// else if (variableName == "observedSynthesisNoise")
+				// {
+				// 	double val;
+				// 	iss.str(tmp);
+				// 	while (iss >> val)
+				// 	{
+				// 		observedSynthesisNoise.push_back(val);
+				// 	}
+				// }
+				// else if (variableName == "std_NoiseOffset")
+				// {
+				// 	double val;
+				// 	iss.str(tmp);
+				// 	while (iss >> val)
+				// 	{
+				// 		std_NoiseOffset.push_back(val);
+				// 	}
+				// }
 				else if (variableName == "covarianceMatrix")
 				{
 					if (tmp == "***") //end of matrix
@@ -303,7 +309,7 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 						continue;
 					else
 					{
-						double val;
+						double val = 0.0;
 						iss.str(tmp);
 						if (!old_format)
 						{
@@ -343,7 +349,7 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 		}
 	}
 	//init other values
-	numAcceptForNoiseOffset.resize(obsPhiSets, 0);
+	//numAcceptForNoiseOffset.resize(obsPhiSets, 0);
 	bias_csp = 0;
 	proposedCodonSpecificParameter[dM].resize(numMutationCategories);
 	proposedCodonSpecificParameter[dEta].resize(numSelectionCategories);
@@ -371,33 +377,34 @@ void ROCParameter::writeROCRestartFile(std::string filename)
 	out.open(filename.c_str(), std::ofstream::app);
 	if (out.fail())
 		my_printError("Error opening file % to write restart file.\n", filename.c_str());
+		
 	else
 	{
 		std::ostringstream oss;
 		unsigned j;
-		oss << ">noiseOffset:\n";
-		for (j = 0; j < noiseOffset.size(); j++)
-		{
-			oss << noiseOffset[j];
-			if ((j + 1) % 10 == 0)
-				oss << "\n";
-			else
-				oss << " ";
-		}
-		if (j % 10 != 0)
-			oss << "\n";
+		// oss << ">noiseOffset:\n";
+		// for (j = 0; j < noiseOffset.size(); j++)
+		// {
+		// 	oss << noiseOffset[j];
+		// 	if ((j + 1) % 10 == 0)
+		// 		oss << "\n";
+		// 	else
+		// 		oss << " ";
+		// }
+		// if (j % 10 != 0)
+		// 	oss << "\n";
 
-		oss << ">observedSynthesisNoise:\n";
-		for (j = 0; j < observedSynthesisNoise.size(); j++)
-		{
-			oss << observedSynthesisNoise[j];
-			if ((j + 1) % 10 == 0)
-				oss << "\n";
-			else
-				oss << " ";
-		}
-		if (j % 10 != 0)
-			oss << "\n";
+		// oss << ">observedSynthesisNoise:\n";
+		// for (j = 0; j < observedSynthesisNoise.size(); j++)
+		// {
+		// 	oss << observedSynthesisNoise[j];
+		// 	if ((j + 1) % 10 == 0)
+		// 		oss << "\n";
+		// 	else
+		// 		oss << " ";
+		// }
+		// if (j % 10 != 0)
+		// 	oss << "\n";
 
 		//oss << ">mutation_prior_sd:\n" << mutation_prior_sd << "\n";
 		oss << ">mutation_prior_mean:\n";
@@ -430,17 +437,17 @@ void ROCParameter::writeROCRestartFile(std::string filename)
 			if (j % 10 != 0)
 				oss << "\n";
 		}
-		oss << ">std_NoiseOffset:\n";
-		for (j = 0; j < std_NoiseOffset.size(); j++)
-		{
-			oss << std_NoiseOffset[j];
-			if ((j + 1) % 10 == 0)
-				oss << "\n";
-			else
-				oss << " ";
-		}
-		if (j % 10 != 0)
-			oss << "\n";
+		// oss << ">std_NoiseOffset:\n";
+		// for (j = 0; j < std_NoiseOffset.size(); j++)
+		// {
+		// 	oss << std_NoiseOffset[j];
+		// 	if ((j + 1) % 10 == 0)
+		// 		oss << "\n";
+		// 	else
+		// 		oss << " ";
+		// }
+		// if (j % 10 != 0)
+		// 	oss << "\n";
 		oss << ">std_csp:\n";
 		for (j = 0; j < std_csp.size(); j++)
 		{
@@ -519,6 +526,12 @@ void ROCParameter::initAllTraces(unsigned samples, unsigned num_genes, bool esti
 }
 
 
+//' @name initMutationCategories
+//' @title Initialize values for mutation CSP. File should be of comma-separated with header. Three columns should be of order Amino_acid,Codon,Value
+//' @param files list of files containing starting values. Number of files should equal the number of categories.
+//' @param numCategories number of mutation categories (should be less than or equal to number of mixtures)
+//' @param fix Can use this parameter to fix mutation at current values (won't change over course of MCMC run)
+
 void ROCParameter::initMutationCategories(std::vector<std::string> files, unsigned numCategories, bool fix)
 {
 	for (unsigned category = 0; category < numCategories; category++)
@@ -527,7 +540,12 @@ void ROCParameter::initMutationCategories(std::vector<std::string> files, unsign
 		std::ifstream currentFile;
 		currentFile.open(files[category].c_str());
 		if (currentFile.fail())
+		{
 			my_printError("Error opening file % to initialize mutation values.\n", category);
+			my_printError("please use absolute path");
+			return;
+		}
+
 		else
 		{
 			std::string tmp;
@@ -554,6 +572,11 @@ void ROCParameter::initMutationCategories(std::vector<std::string> files, unsign
 	} //END OF A CATEGORY/FILE
 }
 
+//' @name initSelectionCategories
+//' @title Initialize values for selection CSP. File should be of comma-separated with header. Three columns should be of order Amino_acid,Codon,Value
+//' @param files list of files containing starting values. Number of files should equal the number of categories.
+//' @param numCategories number of mutation categories (should be less than or equal to number of mixtures)
+//' @param fix Can use this parameter to fix selection at current values (won't change over course of MCMC run)
 
 void ROCParameter::initSelectionCategories(std::vector<std::string> files, unsigned numCategories, bool fix)
 {
@@ -563,7 +586,12 @@ void ROCParameter::initSelectionCategories(std::vector<std::string> files, unsig
 		std::ifstream currentFile;
 		currentFile.open(files[category].c_str());
 		if (currentFile.fail())
+		{
 			my_printError("Error opening file % to initialize selection values.\n", category);
+			my_printError("please use absolute path");
+			return;
+		}
+
 		else
 		{
 			std::string tmp;
@@ -598,22 +626,22 @@ void ROCParameter::initSelectionCategories(std::vector<std::string> files, unsig
 //---------- Trace Functions -----------//
 //--------------------------------------//
 
-void ROCParameter::updateObservedSynthesisNoiseTraces(unsigned sample)
-{
-	for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
-	{
-		traces.updateObservedSynthesisNoiseTrace(i, sample, observedSynthesisNoise[i]);
-	}
-}
+// void ROCParameter::updateObservedSynthesisNoiseTraces(unsigned sample)
+// {
+// 	for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
+// 	{
+// 		traces.updateObservedSynthesisNoiseTrace(i, sample, observedSynthesisNoise[i]);
+// 	}
+// }
 
 
-void ROCParameter::updateNoiseOffsetTraces(unsigned sample)
-{
-	for (unsigned i = 0; i < noiseOffset.size(); i++)
-	{
-		traces.updateSynthesisOffsetTrace(i, sample, noiseOffset[i]);
-	}
-}
+// void ROCParameter::updateNoiseOffsetTraces(unsigned sample)
+// {
+// 	for (unsigned i = 0; i < noiseOffset.size(); i++)
+// 	{
+// 		traces.updateSynthesisOffsetTrace(i, sample, noiseOffset[i]);
+// 	}
+// }
 
 void ROCParameter::updateCodonSpecificParameterTrace(unsigned sample, std::string grouping)
 {
@@ -622,11 +650,16 @@ void ROCParameter::updateCodonSpecificParameterTrace(unsigned sample, std::strin
 }
 
 
+//' @name fixDM
+//' @title Fix the value of mutation its current value
 
 void ROCParameter::fixDM()
 {
 	fix_dM = true;
 }
+
+//' @name fixDEta
+//' @title Fix the value of selection its current value
 
 void ROCParameter::fixDEta()
 {
@@ -664,79 +697,79 @@ CovarianceMatrix& ROCParameter::getCovarianceMatrixForAA(std::string aa)
 //------------------------------------------------------//
 
 
-double ROCParameter::getObservedSynthesisNoise(unsigned index)
-{
-	return observedSynthesisNoise[index];
-}
+// double ROCParameter::getObservedSynthesisNoise(unsigned index)
+// {
+// 	return observedSynthesisNoise[index];
+// }
 
 
-void ROCParameter::setObservedSynthesisNoise(unsigned index, double se)
-{
-	observedSynthesisNoise[index] = se;
-}
+// void ROCParameter::setObservedSynthesisNoise(unsigned index, double se)
+// {
+// 	observedSynthesisNoise[index] = se;
+// }
 
 
 
 
 
-//-------------------------------------------//
-//---------- noiseOffset Functions ----------//
-//-------------------------------------------//
+// //-------------------------------------------//
+// //---------- noiseOffset Functions ----------//
+// //-------------------------------------------//
 
 
-double ROCParameter::getNoiseOffset(unsigned index, bool proposed)
-{
-	return (proposed ? noiseOffset_proposed[index] : noiseOffset[index]);
-}
+// double ROCParameter::getNoiseOffset(unsigned index, bool proposed)
+// {
+// 	return (proposed ? noiseOffset_proposed[index] : noiseOffset[index]);
+// }
 
 
-double ROCParameter::getCurrentNoiseOffsetProposalWidth(unsigned index)
-{
-	return std_NoiseOffset[index];
-}
+// double ROCParameter::getCurrentNoiseOffsetProposalWidth(unsigned index)
+// {
+// 	return std_NoiseOffset[index];
+// }
 
 
-void ROCParameter::proposeNoiseOffset()
-{
-	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
-	{
-		noiseOffset_proposed[i] = randNorm(noiseOffset[i], std_NoiseOffset[i]);
-	}
-}
+// void ROCParameter::proposeNoiseOffset()
+// {
+// 	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+// 	{
+// 		noiseOffset_proposed[i] = randNorm(noiseOffset[i], std_NoiseOffset[i]);
+// 	}
+// }
 
 
-void ROCParameter::setNoiseOffset(unsigned index, double _noiseOffset)
-{
-	noiseOffset[index] = _noiseOffset;
-}
+// void ROCParameter::setNoiseOffset(unsigned index, double _noiseOffset)
+// {
+// 	noiseOffset[index] = _noiseOffset;
+// }
 
 
-void ROCParameter::updateNoiseOffset(unsigned index)
-{
-	noiseOffset[index] = noiseOffset_proposed[index];
-	numAcceptForNoiseOffset[index]++;
-}
+// void ROCParameter::updateNoiseOffset(unsigned index)
+// {
+// 	noiseOffset[index] = noiseOffset_proposed[index];
+// 	numAcceptForNoiseOffset[index]++;
+// }
 
 
 //-----------------------------------//
 //---------- Noise Functions --------//
 //-----------------------------------//
 
-void ROCParameter::setInitialValuesForSepsilon(std::vector<double> seps)
-{
-	if (seps.size() == observedSynthesisNoise.size())
-	{
-		for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
-		{
-			observedSynthesisNoise[i] = seps[i];
-		}
-	}
-	else
-	{
-		my_printError("ROCParameter::setInitialValuesForSepsilon number of initial values (%) does not match number of expression sets (%)",
-					  seps.size(), observedSynthesisNoise.size());
-	}
-}
+// void ROCParameter::setInitialValuesForSepsilon(std::vector<double> seps)
+// {
+// 	if (seps.size() == observedSynthesisNoise.size())
+// 	{
+// 		for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
+// 		{
+// 			observedSynthesisNoise[i] = seps[i];
+// 		}
+// 	}
+// 	else
+// 	{
+// 		my_printError("ROCParameter::setInitialValuesForSepsilon number of initial values (%) does not match number of expression sets (%)",
+// 					  seps.size(), observedSynthesisNoise.size());
+// 	}
+// }
 
 
 //-----------------------------------//
@@ -851,7 +884,31 @@ void ROCParameter::completeUpdateCodonSpecificParameter()
 
 void ROCParameter::updateCodonSpecificParameter(std::string grouping)
 {
-	CSPToUpdate.push_back(grouping);
+	//CSPToUpdate.push_back(grouping);
+	unsigned aaStart, aaEnd;
+	SequenceSummary::AAToCodonRange(grouping, aaStart, aaEnd, true);
+	unsigned aaIndex = SequenceSummary::aaToIndex.find(grouping)->second;
+	numAcceptForCodonSpecificParameters[aaIndex]++;
+	if (!fix_dM)
+	{
+		for (unsigned k = 0u; k < numMutationCategories; k++)
+		{
+			for (unsigned i = aaStart; i < aaEnd; i++)
+			{
+				currentCodonSpecificParameter[dM][k][i] = proposedCodonSpecificParameter[dM][k][i];
+			}
+		}
+	}
+	if (!fix_dEta)
+	{
+		for (unsigned k = 0u; k < numSelectionCategories; k++)
+		{
+			for (unsigned i = aaStart; i < aaEnd; i++)
+			{
+				currentCodonSpecificParameter[dEta][k][i] = proposedCodonSpecificParameter[dEta][k][i];
+			}
+		}
+	}
 }
 
 //-------------------------------------//
@@ -925,52 +982,52 @@ void ROCParameter::setMutationPriorStandardDeviation(std::vector<std::vector<dou
 //------------------------------------------------------------------//
 
 
-double ROCParameter::getNoiseOffsetPosteriorMean(unsigned index, unsigned samples)
-{
-	double posteriorMean = 0.0;
-	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
-	unsigned traceLength = lastIteration;
+// double ROCParameter::getNoiseOffsetPosteriorMean(unsigned index, unsigned samples)
+// {
+// 	double posteriorMean = 0.0;
+// 	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
+// 	unsigned traceLength = lastIteration;
 
-	if (samples > traceLength)
-	{
-		my_printError("Warning in ROCParameter::getNoiseOffsetPosteriorMean throws: Number of anticipated samples ");
-		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
+// 	if (samples > traceLength)
+// 	{
+// 		my_printError("Warning in ROCParameter::getNoiseOffsetPosteriorMean throws: Number of anticipated samples ");
+// 		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
 
-		samples = traceLength;
-	}
-	unsigned start = traceLength - samples;
+// 		samples = traceLength;
+// 	}
+// 	unsigned start = traceLength - samples;
 
-	for (unsigned i = start; i < traceLength; i++)
-		posteriorMean += NoiseOffsetTrace[i];
+// 	for (unsigned i = start; i < traceLength; i++)
+// 		posteriorMean += NoiseOffsetTrace[i];
 
-	return posteriorMean / (double)samples;
-}
+// 	return posteriorMean / (double)samples;
+// }
 
 
-double ROCParameter::getNoiseOffsetVariance(unsigned index, unsigned samples, bool unbiased)
-{
-	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
-	unsigned traceLength = lastIteration;
-	if (samples > traceLength)
-	{
-		my_printError("Warning in ROCParameter::getNoiseOffsetVariance throws: Number of anticipated samples ");
-		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
+// double ROCParameter::getNoiseOffsetVariance(unsigned index, unsigned samples, bool unbiased)
+// {
+// 	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
+// 	unsigned traceLength = lastIteration;
+// 	if (samples > traceLength)
+// 	{
+// 		my_printError("Warning in ROCParameter::getNoiseOffsetVariance throws: Number of anticipated samples ");
+// 		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
 
-		samples = traceLength;
-	}
-	double posteriorMean = getNoiseOffsetPosteriorMean(index, samples);
+// 		samples = traceLength;
+// 	}
+// 	double posteriorMean = getNoiseOffsetPosteriorMean(index, samples);
 
-	double posteriorVariance = 0.0;
+// 	double posteriorVariance = 0.0;
 
-	unsigned start = traceLength - samples;
-	for (unsigned i = start; i < traceLength; i++)
-	{
-		double difference = NoiseOffsetTrace[i] - posteriorMean;
-		posteriorVariance += difference * difference;
-	}
-	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
-	return normalizationTerm * posteriorVariance;
-}
+// 	unsigned start = traceLength - samples;
+// 	for (unsigned i = start; i < traceLength; i++)
+// 	{
+// 		double difference = NoiseOffsetTrace[i] - posteriorMean;
+// 		posteriorVariance += difference * difference;
+// 	}
+// 	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
+// 	return normalizationTerm * posteriorVariance;
+// }
 
 
 
@@ -981,23 +1038,23 @@ double ROCParameter::getNoiseOffsetVariance(unsigned index, unsigned samples, bo
 //----------------------------------------------//
 
 
-void ROCParameter::adaptNoiseOffsetProposalWidth(unsigned adaptationWidth, bool adapt)
-{
-	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
-	{
-		double acceptanceLevel = numAcceptForNoiseOffset[i] / (double)adaptationWidth;
-		traces.updateSynthesisOffsetAcceptanceRateTrace(i, acceptanceLevel);
-		if (adapt)
-		{
-			if (acceptanceLevel < 0.2)
-				std_NoiseOffset[i] *= 0.8;
-			if (acceptanceLevel > 0.3)
-				std_NoiseOffset[i] *= 1.2;
+// void ROCParameter::adaptNoiseOffsetProposalWidth(unsigned adaptationWidth, bool adapt)
+// {
+// 	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+// 	{
+// 		double acceptanceLevel = numAcceptForNoiseOffset[i] / (double)adaptationWidth;
+// 		traces.updateSynthesisOffsetAcceptanceRateTrace(i, acceptanceLevel);
+// 		if (adapt)
+// 		{
+// 			if (acceptanceLevel < 0.2)
+// 				std_NoiseOffset[i] *= 0.8;
+// 			if (acceptanceLevel > 0.3)
+// 				std_NoiseOffset[i] *= 1.2;
 
-			numAcceptForNoiseOffset[i] = 0u;
-		}
-	}
-}
+// 			numAcceptForNoiseOffset[i] = 0u;
+// 		}
+// 	}
+// }
 
 
 
@@ -1008,15 +1065,15 @@ void ROCParameter::adaptNoiseOffsetProposalWidth(unsigned adaptationWidth, bool 
 //-------------------------------------//
 
 
-void ROCParameter::setNumObservedPhiSets(unsigned _phiGroupings)
-{
-	obsPhiSets = _phiGroupings;
-	noiseOffset.resize(obsPhiSets, 0.1);
-	noiseOffset_proposed.resize(obsPhiSets, 0.1);
-	std_NoiseOffset.resize(obsPhiSets, 0.1);
-	numAcceptForNoiseOffset.resize(obsPhiSets, 0);
-	observedSynthesisNoise.resize(obsPhiSets, 1.0);
-}
+// void ROCParameter::setNumObservedPhiSets(unsigned _phiGroupings)
+// {
+// 	obsPhiSets = _phiGroupings;
+// 	noiseOffset.resize(obsPhiSets, 0.1);
+// 	noiseOffset_proposed.resize(obsPhiSets, 0.1);
+// 	std_NoiseOffset.resize(obsPhiSets, 0.1);
+// 	numAcceptForNoiseOffset.resize(obsPhiSets, 0);
+// 	observedSynthesisNoise.resize(obsPhiSets, 1.0);
+// }
 
 
 void ROCParameter::getParameterForCategory(unsigned category, unsigned paramType, std::string aa, bool proposal,
