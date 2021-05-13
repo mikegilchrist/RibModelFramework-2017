@@ -114,10 +114,10 @@ void PAModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex,
 	double phiValue = parameter->getSynthesisRate(geneIndex, synthesisRateCategory, false);
 	double phiValue_proposed = parameter->getSynthesisRate(geneIndex, synthesisRateCategory, true);
 
-#ifdef _OPENMP
-//#ifndef __APPLE__
-#pragma omp parallel for reduction(+:logLikelihood,logLikelihood_proposed)
-#endif
+// #ifdef _OPENMP
+// //#ifndef __APPLE__
+// #pragma omp parallel for reduction(+:logLikelihood,logLikelihood_proposed)
+// #endif
 	for (unsigned index = 0; index < getGroupListSize(); index++) //number of codons, without the stop codons
 	{
 		std::string codon = getGrouping(index);
@@ -761,11 +761,11 @@ void PAModel::simulateGenome(Genome &genome)
 
 		Gene gene = genome.getGene(geneIndex);
 		Gene tmpGene = gene;
-		std::vector<unsigned> rfpCount;
+		std::vector<unsigned long> rfpCount;
 		std::vector<unsigned> codon_counts(61,0);
 		std::vector<unsigned> currentCodons(61,0);
-		std::vector<unsigned> rfpPerPositionPerCodon(61,0);
-		std::vector<unsigned> totalRFP(61,0);
+		std::vector<unsigned long> rfpPerPositionPerCodon(61,0);
+		std::vector<unsigned long> totalRFP(61,0);
 		std::vector <unsigned> positions = tmpGene.geneData.getPositionCodonID(); 
 		for (unsigned codonIndex = 0u; codonIndex < 61; codonIndex++)
 		{
@@ -789,7 +789,7 @@ void PAModel::simulateGenome(Genome &genome)
 			std::gamma_distribution<double> GDistribution(alphaPrime,1.0/lambdaPrime);
 			double tmp = GDistribution(Parameter::generator);
 			std::poisson_distribution<unsigned> PDistribution(phi * tmp);
-			unsigned simulatedValue = PDistribution(Parameter::generator);
+			unsigned long simulatedValue = PDistribution(Parameter::generator);
 			tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, simulatedValue,0);
 			rfpPerPositionPerCodon[codonIndex] = simulatedValue/codon_counts[codonIndex];
 			totalRFP[codonIndex] = simulatedValue;

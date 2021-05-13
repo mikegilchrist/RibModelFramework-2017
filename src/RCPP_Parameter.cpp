@@ -258,7 +258,7 @@ RCPP_MODULE(Parameter_mod)
 
 
 		.method("fixSphi",&Parameter::fixStdDevSynthesis)
-
+		.method("setStdDevSynthesisRate",&Parameter::setStdDevSynthesisRate)
 
 
 		//Used for getters and setters
@@ -386,6 +386,7 @@ RCPP_MODULE(Parameter_mod)
 		.method("fixAlpha",&PANSEParameter::fixAlpha)
 		.method("fixLambdaPrime",&PANSEParameter::fixLambdaPrime)
 		.method("fixNSERate",&PANSEParameter::fixNSERate)
+		.method("fixZ",&PANSEParameter::fixZ)
 		.method("shareNSERate",&PANSEParameter::shareNSERate)
 
 		//CSP Functions:
